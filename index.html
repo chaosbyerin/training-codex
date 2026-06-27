@@ -14,8 +14,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: #1C2128; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
-  #root { min-height: 100vh; }
+  html, body { margin: 0; padding: 0; background: #1C2128; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; height: 100%; }
+  #root { min-height: 100%; }
   #install-banner {
     position: fixed; left: 0; right: 0; z-index: 999;
     bottom: calc(92px + env(safe-area-inset-bottom, 0px));
@@ -146,15 +146,15 @@ const MISSIONS = [
    ]},
   {id:"m8",tier:1,loc:"gym",mins:20,pts:3,focus:["strength","flexibility"],
    title:"Quick Forge — Upper Body",sub:"Three machines. Twenty minutes. Your posture muscles.",
-   lore:"The reverse fly is the most important posture machine in the building.",
+   lore:"This version leans on the seated row and lat pulldown for posture work since they're in almost every gym — no cable station or reverse fly machine required. If you do have a free reverse fly machine, swap it in for the row.",
    drills:[
-     {name:"Lat Pulldown Machine",reps:"3 × 15",note:"Wide or neutral grip. Pull to upper chest, squeeze shoulder blades."},
-     {name:"Chest Press Machine",reps:"3 × 15",note:"Keep shoulders down and back. Slow on the return."},
-     {name:"Reverse Fly Machine",reps:"3 × 15",note:"Rear deltoids + rhomboids. Move slowly — posture drill, not an ego lift."},
+     {name:"Seated Row Machine",reps:"3 × 15",note:"Elbows close to your sides, pull to your ribs, hold the squeeze 2 full seconds before releasing. This 2-second hold is what makes this a posture drill instead of just a back exercise."},
+     {name:"Lat Pulldown Machine",reps:"3 × 15",note:"Wide grip, pull to upper chest, pause and squeeze shoulder blades together for 1 sec at the bottom of each rep."},
+     {name:"Chest Press Machine",reps:"3 × 15",note:"Keep shoulders down and back throughout. Slow on the return — this is where the rear shoulder stabilizers do their work."},
    ]},
   {id:"m9",tier:1,loc:"gym",mins:20,pts:3,focus:["strength"],
    title:"Quick Forge — Lower Body",sub:"Three machines. Twenty minutes. Glutes, quads, hamstrings.",
-   lore:"The hip abductor machine trains the exact muscles that power belly dance hip isolations.",
+   lore:"The hip abductor machine trains the exact muscles that power belly dance hip isolations. If it's unavailable, a slow, deliberate set of extra-wide leg press reps with toes turned out hits the same outer-hip muscles.",
    drills:[
      {name:"Leg Press Machine",reps:"3 × 15",note:"Feet hip-width, mid-plate. Don't lock knees."},
      {name:"Seated Leg Curl Machine",reps:"3 × 15",note:"Slow 3-count return. Essential for knee health and posture."},
@@ -162,12 +162,12 @@ const MISSIONS = [
    ]},
   {id:"m10",tier:2,loc:"gym",mins:45,pts:5,focus:["strength","flexibility"],
    title:"The Full Upper Forge",sub:"Complete upper body. Chest, back, shoulders, arms, core.",
-   lore:"Start every gym session with 3 min on the rowing machine at low resistance.",
+   lore:"Start every gym session with 3 min on the rowing machine at low resistance. Posture work here comes from the seated row's contracted hold — no cable station or reverse fly machine needed. Swap in a reverse fly machine instead of the second row set if you find one free.",
    drills:[
      {name:"Rowing Machine Warm-Up",reps:"3 min",note:"Low resistance. Opens chest, activates back."},
-     {name:"Lat Pulldown Machine",reps:"3 × 15",note:"Wide or neutral grip, pull to upper chest."},
-     {name:"Seated Row Machine",reps:"3 × 15",note:"Elbows close, 1-sec hold at the pull."},
-     {name:"Reverse Fly Machine",reps:"3 × 15",note:"Slow. Choose a weight you can fully control."},
+     {name:"Lat Pulldown Machine",reps:"3 × 15",note:"Wide or neutral grip, pull to upper chest, pause and squeeze shoulder blades for 1 sec."},
+     {name:"Seated Row Machine — Set One",reps:"3 × 15",note:"Elbows close, 1-sec hold at the pull."},
+     {name:"Seated Row Machine — Set Two (Rear-Delt Bias)",reps:"3 × 15",note:"Same machine, wider grip if available, elbows flared higher and out to the sides instead of tucked. Hold the contracted position 2 full seconds. This angle change is what targets the rear delts and rhomboids — your posture muscles — without needing a separate machine."},
      {name:"Chest Press Machine",reps:"3 × 15",note:"Shoulders down and back. Slow on the return."},
      {name:"Shoulder Press Machine",reps:"3 × 12",note:"Control the lowering phase. Don't lock elbows at top."},
      {name:"Bicep Curl Machine",reps:"2 × 15",note:"Full range. Pause at top."},
@@ -510,7 +510,7 @@ function MissionCard({mission,logCount,onLog,suggestedUpgrade}){
 const SLOT_POOLS={
   normal:[
     // MON — constrained, before work or lunch only
-    [[{time:"Before work",type:"gym",title:"Quick Forge — Upper Body",id:"m8",isR:false,note:"25–30 min. Lat pulldown, chest press, reverse fly."},{time:"Before work",type:"gym",title:"Quick Forge — Lower Body",id:"m9",isR:false,note:"25–30 min. Leg press, leg curl, hip abductor."}],
+    [[{time:"Before work",type:"gym",title:"Quick Forge — Upper Body",id:"m8",isR:false,note:"25–30 min. Seated row, lat pulldown, chest press."},{time:"Before work",type:"gym",title:"Quick Forge — Lower Body",id:"m9",isR:false,note:"25–30 min. Leg press, leg curl, hip abductor."}],
      [{time:"Lunch",type:"office",title:"The First Language",id:"r3",isR:true,note:"Tier I belly dance. 15 min."},{time:"Lunch",type:"office",title:"The Conference Room Flow",id:"m4",isR:false,note:"10 min. Hip circles, warrior hold, figure-8."},{time:"Lunch",type:"office",title:"The Stairwell Sprint",id:"m3",isR:false,note:"10 min stairwell cardio."}]],
     // TUE — flexible evening: gym slot has before/after work options; plus lunch slot
     [[{time:"Before work",type:"gym",title:"The Rider's Quick Trial",id:"m7",isR:false,note:"20 min spin intervals."},{time:"After work",type:"gym",title:"The Rider's Full Trial",id:"m12",isR:false,note:"45 min spin + core — no time pressure after work."},{time:"After work",type:"gym",title:"The Full Upper Forge",id:"m10",isR:false,note:"45 min full upper body after work."}],
@@ -799,7 +799,7 @@ function App(){
   const TYPE_LABEL={gym:"Gym",office:"Office",outdoor:"Outdoor"};
 
   return(
-    <div style={{color:C.textPrimary,fontFamily:"'Lato',sans-serif",background:C.ink,minHeight:"100vh",maxWidth:520,margin:"0 auto",position:"relative",paddingBottom:"calc(100px + env(safe-area-inset-bottom, 0px))"}}>
+    <div style={{color:C.textPrimary,fontFamily:"'Lato',sans-serif",background:C.ink,minHeight:"100%",maxWidth:520,margin:"0 auto",position:"relative",display:"flex",flexDirection:"column"}}>
       <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet"/>
 
       {/* HEADER */}
@@ -831,6 +831,8 @@ function App(){
 
       {logMsg&&<div style={{background:C.sage,color:"white",padding:"9px 18px",fontSize:14.5,fontFamily:"'Cinzel',serif",letterSpacing:"0.08em",textAlign:"center"}}>{logMsg}</div>}
       {!isOnline&&<div style={{background:C.emberDim,color:C.parchment,padding:"7px 18px",fontSize:13.5,fontFamily:"'Cinzel',serif",letterSpacing:"0.06em",textAlign:"center"}}>⚡ Offline — your data is safe and everything still works</div>}
+
+      <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
 
       {/* ── TODAY ── */}
       {tab==="today"&&(
@@ -1216,8 +1218,10 @@ function App(){
         </div>
       )}
 
+      </div>
+
       {/* BOTTOM NAV */}
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:520,background:C.card,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom, 0px)"}}>
+      <div style={{flexShrink:0,position:"sticky",bottom:0,background:C.card,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom, 0px)"}}>
         {NAV.map(n=>(
           <button key={n.id} onClick={()=>{setNavStack([]);setLogForm(null);setSwapPicker(null);setPendingLogReturn(null);setTab(n.id);}} style={{
             flex:1,padding:"13px 2px 12px",background:tab===n.id?C.emberLight:"none",border:"none",cursor:"pointer",
