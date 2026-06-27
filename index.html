@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1C2128">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Codex">
+<title>The Training Codex</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="icon" href="./icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #1C2128; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+  #root { min-height: 100vh; }
+  #install-banner {
+    position: fixed; left: 0; right: 0; z-index: 999;
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    background: #C8922A; color: #1C2128; padding: 12px 16px;
+    font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.05em;
+    display: none; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  #install-banner button {
+    background: #1C2128; color: #F2ECD8; border: none; padding: 8px 14px;
+    border-radius: 4px; font-family: 'Cinzel', serif; font-size: 11px; cursor: pointer; flex-shrink: 0;
+  }
+  #install-banner .dismiss { background: transparent; color: #1C2128; border: 1px solid #1C2128; }
+  #offline-badge {
+    position: fixed; z-index: 998;
+    top: calc(8px + env(safe-area-inset-top, 0px)); right: 8px;
+    background: rgba(28,33,40,0.85); color: #C8922A; font-family: 'Cinzel', serif;
+    font-size: 9px; letter-spacing: 0.08em; padding: 4px 10px; border-radius: 10px;
+    display: none;
+  }
+  #loading-screen {
+    position: fixed; inset: 0; background: #1C2128; display: flex; align-items: center;
+    justify-content: center; z-index: 1000; flex-direction: column; gap: 12px;
+  }
+  #loading-screen .rune { color: rgba(200,146,42,0.5); font-size: 18px; letter-spacing: 0.4em; }
+  #loading-screen .title { color: #F2ECD8; font-family: 'Cinzel', serif; font-size: 22px; }
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="rune">✦ ✦ ✦</div>
+  <div class="title">The Training Codex</div>
+</div>
+
+<div id="offline-badge">⚡ Offline</div>
+<div id="root"></div>
+
+<div id="install-banner">
+  <span>Add this to your home screen for the full app experience.</span>
+  <div style="display:flex; gap:8px; flex-shrink:0;">
+    <button id="install-btn">Install</button>
+    <button class="dismiss" id="dismiss-btn">×</button>
+  </div>
+</div>
+
+<!-- React + ReactDOM from CDN (no build step needed) -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script>
+  Babel.registerPreset("codex-react", {
+    presets: [[Babel.availablePresets["react"], { runtime: "classic" }]],
+  });
+</script>
+<script type="text/babel" data-presets="codex-react">
+const { useState, useCallback, useEffect } = React;
+
+
+const C = {
+  ink:"#14171C", parchment:"#F2ECD8", ember:"#D9A33A", emberDim:"#C8922A", emberLight:"#3A2E14",
+  violet:"#9B8FC4", violetLight:"#2A2640", sage:"#74B68C", sageLight:"#1E332A",
+  rose:"#C97E7E", roseLight:"#3A2424", sky:"#6FA3CC", skyLight:"#1F3344",
+  stone:"#B5AC9C", border:"rgba(255,255,255,0.12)",
+  card:"#1F242C", cardAlt:"#262C36", textPrimary:"#F2ECD8",
+};
+
+// ── MISSIONS ──────────────────────────────────────────────────────────────────
+const MISSIONS = [
+  {id:"m1",tier:1,loc:"office",mins:5,pts:1,focus:["spirit","flexibility"],
+   title:"The Desk Reset",sub:"Undoes the damage of sitting.",
+   lore:"Best mid-afternoon. Nobody can tell you're doing most of these.",
+   drills:[
+     {name:"Shoulder Roll + Chest Opener",reps:"2 rounds",note:"10 slow rolls backward. Interlace fingers behind back, lift chest, hold 20 sec."},
+     {name:"Seated Spinal Twist",reps:"2 × each side",note:"Rotate slowly, one hand on chair back, hold 20 sec each side."},
+     {name:"Hip Flexor Chair Stretch",reps:"30 sec each side",note:"Sit at chair edge, slide one foot back until you feel the front of that hip stretch."},
+     {name:"Standing Hip Circle",reps:"30 sec each way",note:"Wide, slow, deliberate. Looks like loosening your back. Also belly dance conditioning."},
+   ]},
+  {id:"m2",tier:1,loc:"office",mins:5,pts:1,focus:["spirit","strength"],
+   title:"The Invisible Practice",sub:"Belly dance isolations in your chair. Full effect, zero visibility.",
+   lore:"These look like nothing from the outside. They are not nothing.",
+   drills:[
+     {name:"Seated Hip Slide",reps:"1 min",note:"Shift hips left and right without moving your torso."},
+     {name:"Seated Glute Squeeze",reps:"15 × 5-sec hold",note:"Squeeze firmly, hold, release. Also levels the pelvis and reduces lower back compression."},
+     {name:"Belly Contraction Hold",reps:"10 × 10-sec hold",note:"Navel to spine, breathe normally. The deep core no crunch machine reaches."},
+   ]},
+  {id:"m3",tier:2,loc:"office",mins:10,pts:2,focus:["cardio","strength"],
+   title:"The Stairwell Sprint",sub:"Your building's stairwell is a private gym.",
+   lore:"Stair climbing burns roughly twice the calories of flat walking. Entirely private.",
+   drills:[
+     {name:"Walk Up 2–3 Flights",reps:"1 round",note:"Normal pace. Warm up the legs."},
+     {name:"Stair Intervals",reps:"6 rounds",note:"Walk up briskly / walk down slowly. You control every step — nothing like a step machine."},
+     {name:"Stair Calf Raise",reps:"2 × 20",note:"Heels hang off the back edge of a step. Rise and lower slowly. Hold the railing."},
+   ]},
+  {id:"m4",tier:2,loc:"office",mins:10,pts:2,focus:["spirit","flexibility"],
+   title:"The Conference Room Flow",sub:"An empty room, five minutes of movement.",
+   lore:"A standing cat-cow on the table has the same spinal benefit as the floor version.",
+   drills:[
+     {name:"Cat-Cow (hands on table)",reps:"10 reps",note:"Hands braced on table, round and arch your spine."},
+     {name:"Standing Hip Circles",reps:"45 sec each way",note:"Wide, slow, intentional. Foundational belly dance isolation."},
+     {name:"Wall-Supported Warrior I",reps:"30 sec each side",note:"One foot forward, one back, hands on wall. Feel the hip flexor opening."},
+     {name:"Chest Expansion with Breath",reps:"8 reps",note:"Arms out wide, inhale fully, hold 3 sec, exhale. Resets breathing and posture."},
+     {name:"Figure-8 Hip Isolation",reps:"1 min",note:"Hips trace a figure-8. Start slowly."},
+   ]},
+  {id:"m5",tier:2,loc:"office",mins:20,pts:3,focus:["cardio"],
+   title:"The Lunch Walk Gauntlet",sub:"Leave the building. Walk with purpose. Return different.",
+   lore:"Outdoor light at lunch resets your circadian rhythm, improving sleep — which is itself training.",
+   drills:[
+     {name:"Easy Walk",reps:"3 min",note:"Normal pace. Let your nervous system exhale."},
+     {name:"Power Walk Intervals",reps:"4 rounds",note:"2 min brisk / 1 min easy stroll. Looks like walking to lunch. Is interval cardio."},
+     {name:"Posture Walk",reps:"5 min",note:"Shoulders back and down, chin level, core lightly engaged."},
+   ]},
+  {id:"m6",tier:3,loc:"office",mins:30,pts:4,focus:["cardio","strength","flexibility"],
+   title:"The Full Lunch Circuit",sub:"Walk + stairwell + stretch. A complete session in a lunch break.",
+   lore:"Change of shoes recommended.",
+   drills:[
+     {name:"Power Walk Intervals Outside",reps:"15 min",note:"2 min brisk / 1 min easy, 4 rounds."},
+     {name:"Stairwell — 5 Rounds",reps:"8 min",note:"Walk up briskly, walk down slowly. Rest 30 sec between rounds."},
+     {name:"Hallway Stretch Series",reps:"7 min",note:"Hip flexor stretch, shoulder opener, spinal twist, forward fold. 30 sec each."},
+   ]},
+  {id:"m7",tier:1,loc:"gym",mins:20,pts:3,focus:["cardio"],
+   title:"The Rider's Quick Trial",sub:"Spin bike only. Pure cardio, maximum efficiency.",
+   lore:"Interval sessions this length are among the most effective cardio formats that exist.",
+   drills:[
+     {name:"Warm-Up",reps:"4 min",note:"Easy resistance. Find your pace."},
+     {name:"The Gauntlet — 6 Rounds",reps:"12 min",note:"45 sec hard / 75 sec easy. Six battles. You win all six."},
+     {name:"Cool-Down",reps:"4 min",note:"Drop resistance. Let your heart rate fall."},
+   ]},
+  {id:"m8",tier:1,loc:"gym",mins:20,pts:3,focus:["strength","flexibility"],
+   title:"Quick Forge — Upper Body",sub:"Three machines. Twenty minutes. Your posture muscles.",
+   lore:"The reverse fly is the most important posture machine in the building.",
+   drills:[
+     {name:"Lat Pulldown Machine",reps:"3 × 15",note:"Wide or neutral grip. Pull to upper chest, squeeze shoulder blades."},
+     {name:"Chest Press Machine",reps:"3 × 15",note:"Keep shoulders down and back. Slow on the return."},
+     {name:"Reverse Fly Machine",reps:"3 × 15",note:"Rear deltoids + rhomboids. Move slowly — posture drill, not an ego lift."},
+   ]},
+  {id:"m9",tier:1,loc:"gym",mins:20,pts:3,focus:["strength"],
+   title:"Quick Forge — Lower Body",sub:"Three machines. Twenty minutes. Glutes, quads, hamstrings.",
+   lore:"The hip abductor machine trains the exact muscles that power belly dance hip isolations.",
+   drills:[
+     {name:"Leg Press Machine",reps:"3 × 15",note:"Feet hip-width, mid-plate. Don't lock knees."},
+     {name:"Seated Leg Curl Machine",reps:"3 × 15",note:"Slow 3-count return. Essential for knee health and posture."},
+     {name:"Hip Abductor Machine",reps:"3 × 15",note:"Slow out, 2-sec hold at peak, slow in."},
+   ]},
+  {id:"m10",tier:2,loc:"gym",mins:45,pts:5,focus:["strength","flexibility"],
+   title:"The Full Upper Forge",sub:"Complete upper body. Chest, back, shoulders, arms, core.",
+   lore:"Start every gym session with 3 min on the rowing machine at low resistance.",
+   drills:[
+     {name:"Rowing Machine Warm-Up",reps:"3 min",note:"Low resistance. Opens chest, activates back."},
+     {name:"Lat Pulldown Machine",reps:"3 × 15",note:"Wide or neutral grip, pull to upper chest."},
+     {name:"Seated Row Machine",reps:"3 × 15",note:"Elbows close, 1-sec hold at the pull."},
+     {name:"Reverse Fly Machine",reps:"3 × 15",note:"Slow. Choose a weight you can fully control."},
+     {name:"Chest Press Machine",reps:"3 × 15",note:"Shoulders down and back. Slow on the return."},
+     {name:"Shoulder Press Machine",reps:"3 × 12",note:"Control the lowering phase. Don't lock elbows at top."},
+     {name:"Bicep Curl Machine",reps:"2 × 15",note:"Full range. Pause at top."},
+     {name:"Tricep Dip Machine",reps:"2 × 15",note:"Press slowly, controlled return."},
+     {name:"Ab Crunch Machine",reps:"3 × 15",note:"Exhale on every crunch. No momentum."},
+   ]},
+  {id:"m11",tier:2,loc:"gym",mins:45,pts:5,focus:["strength","cardio"],
+   title:"The Full Lower Forge",sub:"Complete lower body. Glutes, quads, hamstrings, calves, lower back.",
+   lore:"The adductor pairs with the abductor — the foundation of all belly dance hip work.",
+   drills:[
+     {name:"Spin Bike Warm-Up",reps:"5 min",note:"Easy resistance."},
+     {name:"Leg Press Machine",reps:"4 × 15",note:"Slow lowering phase — that is where the work happens."},
+     {name:"Hip Abductor Machine",reps:"3 × 15",note:"Slow out, 2-sec hold at peak, slow in."},
+     {name:"Hip Adductor Machine",reps:"3 × 15",note:"Inner thigh. Pairs with abductor for balanced hips."},
+     {name:"Seated Leg Curl Machine",reps:"3 × 15",note:"Slow controlled return."},
+     {name:"Leg Extension Machine",reps:"3 × 15",note:"Stop just short of lockout. No hyperextension."},
+     {name:"Seated Calf Raise Machine",reps:"3 × 20",note:"Full range — pause at top and bottom."},
+     {name:"Back Extension Machine",reps:"3 × 15",note:"Spine neutral. Lower back and glutes."},
+   ]},
+  {id:"m12",tier:3,loc:"gym",mins:45,pts:5,focus:["cardio","strength"],
+   title:"The Rider's Full Trial",sub:"Spin bike intervals + machine core circuit.",
+   lore:"Ten rounds on the bike is a genuine cardiovascular challenge.",
+   drills:[
+     {name:"Spin Bike Warm-Up",reps:"5 min",note:"Settle in, easy resistance."},
+     {name:"The Full Gauntlet — 10 Rounds",reps:"20 min",note:"45 sec hard / 75 sec easy."},
+     {name:"Spin Cool-Down",reps:"5 min",note:"Drop resistance. Let your heart rate fall."},
+     {name:"Ab Crunch Machine",reps:"3 × 15",note:"Exhale on every rep."},
+     {name:"Back Extension Machine",reps:"3 × 15",note:"Spine neutral."},
+     {name:"Hip Abductor Machine",reps:"2 × 15",note:"Post-bike glute activation. Light, controlled."},
+   ]},
+  {id:"m13",tier:1,loc:"outdoor",mins:20,pts:3,focus:["cardio"],
+   title:"The Patrol",sub:"Power walk intervals. Looks like going somewhere. Is cardio training.",
+   lore:"Power walking at full effort is genuinely effective cardio and completely unremarkable in public.",
+   drills:[
+     {name:"Easy Walk",reps:"3 min",note:"Normal pace. Decompress."},
+     {name:"Power Walk Intervals",reps:"4 rounds",note:"2 min brisk / 1 min easy stroll."},
+     {name:"Posture Cool-Down Walk",reps:"5 min",note:"Shoulders back and down, chin level, core lightly engaged."},
+   ]},
+  {id:"m14",tier:2,loc:"outdoor",mins:30,pts:4,focus:["cardio","strength"],
+   title:"The Field & Bench Circuit",sub:"Walk intervals + park bench. Looks like stretching. Is strength training.",
+   lore:"A bench step-up is nothing like a step machine — you control every moment.",
+   drills:[
+     {name:"Power Walk Intervals",reps:"12 min",note:"2 min brisk / 1 min easy, 4 rounds."},
+     {name:"Bench Incline Push-Up",reps:"3 × 10",note:"Hands on bench, walk feet back. Same chest muscles as chest press machine."},
+     {name:"Bench Step-Up",reps:"3 × 10 each side",note:"One foot at a time, slow and deliberate."},
+     {name:"Standing Hip Circles + Figure-8",reps:"1 min",note:"Looks like a back stretch. Belly dance conditioning in broad daylight."},
+     {name:"Hip Flexor Lunge Stretch",reps:"30 sec each side",note:"One foot forward, sink back knee toward ground."},
+   ]},
+  {id:"m15",tier:3,loc:"outdoor",mins:30,pts:4,focus:["spirit","flexibility","cardio"],
+   title:"The Gracekeeper's Walk",sub:"Mindful movement — walk, breathe, practice the invisible arts.",
+   lore:"Conscious gait training rewires how your body moves 24/7.",
+   drills:[
+     {name:"Intentional Walk with Hip Engagement",reps:"10 min",note:"Feel each glute activate as you step."},
+     {name:"Standing Stretch Series",reps:"5 min",note:"Quad stretch, calf stretch on a curb, shoulder opener, forward fold. 30 sec each."},
+     {name:"Hip Circle + Figure-8 Practice",reps:"5 min",note:"Both directions, then figure-8. Belly dance conditioning, outdoors."},
+     {name:"Posture Stack Return Walk",reps:"10 min",note:"Feet hip-width, knees soft, pelvis neutral, ribs in, shoulders back, crown lifted."},
+   ]},
+  {id:"m16",tier:1,loc:"office",mins:20,pts:3,focus:["flexibility","spirit"],
+   title:"The Standing Restoration",sub:"Full yoga flow standing up. No mat required.",
+   lore:"Looks like regular stretching from outside the room.",
+   drills:[
+     {name:"Mountain Pose — Active Stack",reps:"1 min",note:"Feet hip-width, knees soft, pelvis neutral, shoulders back, crown lifted."},
+     {name:"Standing Cat-Cow (hands on wall)",reps:"10 reps",note:"Hands flat on wall. Round and arch your spine. Same benefit as floor version."},
+     {name:"Standing Warrior I",reps:"30 sec each side",note:"One hand on wall for balance if needed."},
+     {name:"Standing Hip Circle",reps:"45 sec each way",note:"Wide, slow, deliberate. Foundational belly dance isolation."},
+     {name:"Low Lunge at Chair",reps:"45 sec each side",note:"One hand on chair back. Feel the front of the back hip open."},
+     {name:"Standing Figure-8",reps:"2 min",note:"Hips trace a slow figure-8. Torso stays still."},
+     {name:"Forward Fold with Shoulder Opener",reps:"45 sec",note:"Hinge at hips, let head hang. Interlace fingers behind back."},
+     {name:"Mountain Pose to Close",reps:"1 min",note:"Set your posture before returning to your desk."},
+   ]},
+  {id:"m17",tier:2,loc:"office",mins:20,pts:3,focus:["strength","cardio"],
+   title:"The Office Forge",sub:"20-min bodyweight circuit. No equipment, no noise.",
+   lore:"Everything here is quiet and self-contained.",
+   drills:[
+     {name:"March in Place — High Knees",reps:"2 min",note:"Knees to hip height, arms pumping. Silent on floors below."},
+     {name:"Wall Push-Up",reps:"3 × 12",note:"Hands on wall, walk feet back. Same muscles as the chest press machine."},
+     {name:"Chair-Assisted Squat",reps:"3 × 12",note:"Sit to edge of chair, stand without hands, lower back slowly."},
+     {name:"Standing Hip Hinge",reps:"3 × 12",note:"Push hips back behind you. Feel the hamstrings load. Stand back up."},
+     {name:"Glute Bridge (chair edge)",reps:"3 × 15",note:"Sit at edge, lean back slightly, press through heels, lift hips, squeeze glutes."},
+     {name:"Standing Calf Raise",reps:"3 × 20",note:"Hold chair back lightly. Rise fully onto toes, pause, lower slowly."},
+     {name:"Standing Forward Fold",reps:"1 min",note:"Hang and breathe. Let everything release."},
+   ]},
+];
+
+// ── ARTS (yoga / belly dance / swordplay) ─────────────────────────────────────
+const ARTS = [
+  {id:"r1",category:"yoga",tier:1,loc:"office",mins:20,pts:2,focus:["flexibility","spirit"],
+   title:"The Warrior's Restoration",sub:"Foundation yoga. Postural repair, hip opening, spinal mobility.",
+   lore:"Every pose works standing or with a wall. Looks like regular stretching from outside.",
+   progression:"When all holds feel comfortable, extend each by 15 seconds. Add Warrior III from Week 6.",
+   steps:[
+     {name:"Mountain Pose",dur:"1 min",cue:"Feet hip-width. Soften knees. Neutral pelvis. Shoulders back and down. Crown lifts. Breathe here."},
+     {name:"Cat-Cow Flow",dur:"2 min",cue:"Hands and knees. Inhale: belly drops, tailbone lifts. Exhale: round spine, tuck chin. 10 slow rounds."},
+     {name:"Thread the Needle",dur:"1 min each side",cue:"From all-fours, slide right arm underneath until right shoulder rests on floor. Hold 45 sec. Releases thoracic spine. Switch sides."},
+     {name:"Downward Facing Dog",dur:"1 min",cue:"Hips lift to an inverted V. Pedal heels gently. Press the floor away through palms."},
+     {name:"Low Lunge — Right",dur:"45 sec",cue:"Right foot between hands. Lower left knee. Sink hips forward until you feel the front of the left hip open."},
+     {name:"Half-Split — Right",dur:"45 sec",cue:"Shift hips back, straighten front leg. Flex right foot. Fold over leg gently."},
+     {name:"Low Lunge + Half-Split — Left",dur:"90 sec",cue:"Repeat both on the left."},
+     {name:"Warrior I — Right",dur:"45 sec",cue:"Right foot forward, back foot at 45°. Arms overhead, shoulders down."},
+     {name:"Warrior II — Right",dur:"45 sec",cue:"Open hips left, arms parallel to floor. Right knee tracks over ankle."},
+     {name:"Warriors — Left",dur:"90 sec",cue:"Repeat Warrior I and II on the left."},
+     {name:"Reclined Butterfly",dur:"2 min",cue:"On your back, soles of feet together, knees fall open. Let gravity open your hips. Directly improves hip circle range."},
+     {name:"Supine Spinal Twist",dur:"30 sec each side",cue:"Hug right knee to chest, let it fall left. Extend right arm. 30 sec, then switch."},
+     {name:"Savasana",dur:"2 min",cue:"Lie flat. Before you get up, feel the back of your head, shoulder blades, and sacrum against the floor. Carry that neutral alignment with you."},
+   ]},
+  {id:"r2",category:"yoga",tier:2,loc:"office",mins:25,pts:3,focus:["flexibility","strength","spirit"],
+   title:"The Power Flow",sub:"Intermediate yoga. Adds strength, balance, and deeper range.",
+   lore:"Work toward continuous Vinyasa — one breath, one movement.",
+   progression:"Add Chair Pose before Warriors. Add Warrior III (balance) when ready.",
+   steps:[
+     {name:"Sun Salutation A — 3 Rounds",dur:"5 min",cue:"Mountain → Forward Fold → Half-Lift → Plank → Cobra → Downward Dog → Forward Fold → Mountain. One breath per movement."},
+     {name:"Warrior I → Warrior II → Reverse Warrior",dur:"90 sec each side",cue:"Hold each 30 sec. Reverse Warrior: flip back palm up, reach back overhead into a side bend."},
+     {name:"Triangle Pose",dur:"45 sec each side",cue:"From Warrior II, straighten front leg, reach front hand toward shin or floor, top arm up."},
+     {name:"Crescent Lunge with Twist",dur:"30 sec each side",cue:"From low lunge, hands to prayer, twist toward front knee, hook opposite elbow outside the thigh."},
+     {name:"Bridge Pose — Held",dur:"3 × 30 sec",cue:"On your back, feet flat hip-width, push hips to ceiling. Squeeze glutes at top."},
+     {name:"Legs-Up-The-Wall",dur:"3 min",cue:"Legs elevated on a wall or folded blanket. Fully passive. Your legs recover here."},
+   ]},
+  {id:"r3",category:"dance",tier:1,loc:"office",mins:15,pts:2,focus:["spirit","flexibility","strength"],
+   title:"The First Language",sub:"Foundational belly dance isolations. Learn to move one thing at a time.",
+   lore:"Practice hip slide and circle daily — even 5 minutes.",
+   progression:"When circles flow unconsciously, add the figure-8. When Egyptian basic feels natural, add a floating arm.",
+   steps:[
+     {name:"Neutral Stance",dur:"1 min",cue:"Feet hip-width, knees soft, weight even. Pelvis neutral. This is home base. Every isolation returns here."},
+     {name:"Hip Slide — Side to Side",dur:"3 min",cue:"Shift right hip directly right, then left hip left. Torso stays level — no leaning, no tipping. Start very slowly. This strangeness is your brain learning a new motor pattern."},
+     {name:"Hip Slide — Forward and Back",dur:"2 min",cue:"Pelvis moves forward and back. Torso stays still. Mechanical at first — that is correct."},
+     {name:"Hip Circle",dur:"3 min",cue:"Combine side-to-side and forward-back into a continuous circle. Go as slowly as possible. Imagine tracing the inside of a barrel. 90 sec each direction."},
+     {name:"Egyptian Basic Step",dur:"3 min",cue:"Step right foot forward with a small hip lift on that side. Then left. Walk in a slow circle. Let the hip lift become natural rather than thought-about."},
+     {name:"Rest and Observe",dur:"2 min",cue:"Stop. Stand in neutral. Notice what feels different. Muscle memory builds in the quiet after practice."},
+   ]},
+  {id:"r4",category:"dance",tier:2,loc:"office",mins:20,pts:3,focus:["spirit","flexibility","strength"],
+   title:"The Figure-8 & Body Wave",sub:"Intermediate belly dance. The movements that make everything look alive.",
+   lore:"When figure-8s flow without concentration, travel while doing them.",
+   progression:"Layer the shimmy over any other movement — that is the goal.",
+   steps:[
+     {name:"Hip Circle Review",dur:"2 min",cue:"Return to your slowest hip circle. Both directions."},
+     {name:"Horizontal Figure-8",dur:"4 min",cue:"Right hip traces the right loop, left hip the left loop. Continuous motion through center. Start very slowly. 2 min each direction."},
+     {name:"Vertical Figure-8 (Maya)",dur:"4 min",cue:"Right hip lifts and comes forward, drops and goes back, while left hip does the opposite. 2 min each direction."},
+     {name:"Chest Lift and Drop",dur:"2 min",cue:"Hands on ribcage. Lift just the chest — not shoulders, not chin. Then drop it back. 1 min lifts, 1 min drops."},
+     {name:"The Body Wave",dur:"5 min",cue:"Lead with chest forward. Ribcage follows. Belly softens forward. Hips push forward. Everything returns. Think of a wave through water. Start very slowly."},
+     {name:"Shimmy Introduction",dur:"2 min",cue:"Slightly bend and release one knee then the other in quick alternation. Let the knee movement create the hip vibration. 1 min on / 30 sec rest / 30 sec on."},
+   ]},
+  {id:"r5",category:"dance",tier:3,loc:"office",mins:15,pts:3,focus:["spirit","cardio","flexibility"],
+   title:"The Flowing Combination",sub:"Putting it together. A short improvisational sequence.",
+   lore:"Record yourself once you feel comfortable. Watch not for judgment but for information.",
+   progression:"Add music. Layer the shimmy over the Egyptian basic step while doing a figure-8.",
+   steps:[
+     {name:"Grounding",dur:"1 min",cue:"Stand and breathe. Notice your weight, your posture, your center. Arrive completely before anything moves."},
+     {name:"Circle into Figure-8",dur:"3 min",cue:"Begin with a slow hip circle. Let it transition naturally into a horizontal figure-8, then a vertical. Move between them organically."},
+     {name:"Egyptian Basic with Hip Accent",dur:"3 min",cue:"Walk the Egyptian basic. Add a hip lift on each step. Now add a figure-8 over the top. Stay slow."},
+     {name:"Body Wave Travelling",dur:"3 min",cue:"Walk slowly forward, initiating a body wave with each step. Then back. Then turn."},
+     {name:"Improvise — Eyes Closed",dur:"4 min",cue:"No instructions. Move to whatever feels natural. Trust your body — it has been learning this entire time."},
+     {name:"Stillness to Close",dur:"1 min",cue:"Stop. Return to neutral. Notice everything that feels different from when you began."},
+   ]},
+  {id:"r6",category:"sword",tier:1,loc:"office",mins:15,pts:2,focus:["strength","flexibility","spirit"],
+   title:"The First Guard",sub:"Foundational blade work. Stance, guard, and the art of moving well under pressure.",
+   lore:"No equipment needed. A wooden spoon or rolled magazine is a perfectly good training blade.",
+   progression:"When stance feels like home, add the Low Cut and Thrust. Begin linking: advance into High Cut, retreat into guard.",
+   steps:[
+     {name:"The Warrior's Breath",dur:"1 min",cue:"Stand feet hip-width. Close your eyes. Three slow breaths — inhale 4 counts, hold 2, exhale 6. Controlled breathing under exertion is a real combat skill."},
+     {name:"Fighting Stance",dur:"2 min",cue:"Dominant foot back, feet shoulder-width staggered. Lead foot forward, back foot at 45°. Weight 50/50, both knees softly bent. Lower and wider than you think. Hold 30 sec, reset, repeat 3 times."},
+     {name:"Guard Position — High and Low",dur:"2 min",cue:"Dominant arm raised, hand near shoulder, tip angled up and forward — High Guard. Non-dominant arm slightly forward — your balance hand. Now Low Guard: sword hand drops to hip height. Alternate slowly."},
+     {name:"The Advance and Retreat",dur:"3 min",cue:"Advance: lead foot steps forward, back foot follows to restore the stance. Retreat: back foot steps back, lead foot follows. Never cross your feet. Keep your head level — no bobbing. 10 times each direction."},
+     {name:"The High Cut",dur:"3 min",cue:"From High Guard, extend arm in a controlled diagonal cut. Shoulder forward, arm extends fully. Power from shoulder and torso rotating together. 10 slow cuts each direction."},
+     {name:"Stand Down",dur:"1 min",cue:"Return to neutral. Shake out your arms. Which shoulder is fatigued? Which leg? What felt unstable? A warrior who notices her weaknesses is already training the next session."},
+   ]},
+  {id:"r7",category:"sword",tier:2,loc:"office",mins:20,pts:3,focus:["strength","cardio","spirit"],
+   title:"The Moving Blade",sub:"Footwork, combination strikes, and the defense that is also an attack.",
+   lore:"Scholagladiatoria and Lindybeige on YouTube cover HEMA with accessible, historically-grounded instruction.",
+   progression:"Add the Riposte — a counter-strike immediately following a successful parry, no pause.",
+   steps:[
+     {name:"Stance and Breath Review",dur:"1 min",cue:"Fighting stance. Three controlled breaths. Notice if you dropped lower than last time. You should have."},
+     {name:"Compass Footwork",dur:"4 min",cue:"Imagine a clock face beneath you. Step to 12 (advance), return; step to 3 (sidestep right), return; step to 6 (retreat), return; step to 9 (sidestep left), return. Make it continuous. Never cross your feet. 2 min each direction."},
+     {name:"The Combination — Cut and Advance",dur:"4 min",cue:"Link the advance with the High Cut: step forward as your sword arm extends into the cut. 15 times slowly, then 5 at full speed. Explosive then immediately controlled."},
+     {name:"The Parry",dur:"4 min",cue:"A parry is not a block — it's a redirection. Sweep your sword hand to intercept from the outside, deflecting rather than stopping. Your feet shift at the same moment — a small sidestep off the line of attack. 10 each side slow, 5 each side at speed."},
+     {name:"The Full Sequence",dur:"5 min",cue:"Advance → High Cut → Parry right → Sidestep → Low Cut → Retreat to guard. Flow continuously. Let each movement trigger the next."},
+     {name:"The Warrior's Bow",dur:"1 min",cue:"Feet together. A slow, deliberate bow. Hold 5 seconds. Rise slowly. You trained with intention today."},
+   ]},
+  {id:"r8",category:"sword",tier:3,loc:"office",mins:20,pts:4,focus:["cardio","strength","spirit"],
+   title:"The Shadow Duel",sub:"Solo sparring. You fight an opponent only you can see.",
+   lore:"Record a session and watch it back. It will look different — better and stranger — than it felt.",
+   progression:"Look up solo kata from kenjutsu or HEMA longsword for structured sequences to add.",
+   steps:[
+     {name:"Arrive and Breathe",dur:"1 min",cue:"Fighting stance. Eyes soft — not focused on any one point. The gaze of someone watching everything at once. Three slow breaths."},
+     {name:"Shadowfighting — First Round",dur:"5 min",cue:"Your opponent moves. You respond. Never cross your feet, never let your guard drop completely, never stop moving. Rest 30 seconds when needed — your opponent waits."},
+     {name:"Rest and Reset",dur:"1 min",cue:"Shake out your arms. Notice what you defaulted to. Most people favour one direction of movement. Your opponent knows this too."},
+     {name:"Shadowfighting — Second Round",dur:"5 min",cue:"Consciously use your weaker side. If you cut right naturally, force yourself left. The uncomfortable round builds what you don't have."},
+     {name:"The Final Exchange",dur:"3 min",cue:"One last sequence, full effort. Everything you know. Then — in a moment of your choosing — step back, lower your weapon, and let it end."},
+     {name:"Cool-Down Walk",dur:"3 min",cue:"Walk slowly around your space. Arms loose. Breathing returning to normal. Notice how your body feels different — shoulders awake, hips worked, feet know the floor better."},
+     {name:"The Warrior's Bow",dur:"1 min",cue:"To your invisible opponent. To yourself. You showed up and fought well."},
+   ]},
+];
+
+const ALL_MISSIONS = [...MISSIONS, ...ARTS];
+
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const LOC_COLOR  = {office:C.violet, gym:C.sage, outdoor:"#5A7A4A"};
+const LOC_BG     = {office:C.violetLight, gym:C.sageLight, outdoor:"#EBF3EB"};
+const FOCUS_COLOR= {strength:C.emberDim, cardio:C.rose, flexibility:C.sky, spirit:C.violet};
+const FOCUS_BG   = {strength:C.emberLight, cardio:C.roseLight, flexibility:C.skyLight, spirit:C.violetLight};
+const TIER_COLOR = {1:C.sage, 2:C.ember, 3:C.rose};
+const TIER_LABEL = {1:"Tier I", 2:"Tier II", 3:"Tier III"};
+const MIN_LABEL  = {5:"5 min",10:"10 min",15:"15 min",20:"20 min",25:"25 min",30:"30 min",45:"45 min"};
+const CAT_COLOR  = {yoga:C.violet, dance:C.rose, sword:C.emberDim};
+const CAT_BG     = {yoga:C.violetLight, dance:C.roseLight, sword:C.emberLight};
+const CAT_LABEL  = {yoga:"Yoga", dance:"Belly Dance", sword:"Swordplay"};
+
+function fmtDate(d){return d.toISOString().slice(0,10);}
+function todayStr(){return fmtDate(new Date());}
+
+function useStorage(key,init){
+  const [val,setVal]=useState(()=>{
+    try{const s=localStorage.getItem(key);return s?JSON.parse(s):init;}
+    catch{return init;}
+  });
+  const save=useCallback((v)=>{
+    const next=typeof v==="function"?v(val):v;
+    setVal(next);
+    try{localStorage.setItem(key,JSON.stringify(next));}catch{}
+  },[key,val]);
+  return [val,save];
+}
+
+function Tag({label,color,bg}){
+  return <span style={{color:C.textPrimary,fontFamily:"'Cinzel',serif",fontSize:11,letterSpacing:"0.09em",padding:"2px 7px",borderRadius:2,fontWeight:600,background:bg,color,display:"inline-block"}}>{label}</span>;
+}
+
+function MiniBar({label,value,max,color}){
+  const pct=Math.min(100,(value/max)*100);
+  const niceLabel=label.charAt(0).toUpperCase()+label.slice(1);
+  return(
+    <div style={{color:C.textPrimary,marginBottom:18}}>
+      <div style={{color:C.textPrimary,display:"flex",justifyContent:"space-between",marginBottom:6}}>
+        <span style={{fontSize:16,fontFamily:"'Lato',sans-serif",fontWeight:700,color:C.textPrimary}}>{niceLabel}</span>
+        <span style={{fontSize:15,fontFamily:"'Lato',sans-serif",color:C.stone}}>{value}/{max}</span>
+      </div>
+      <div style={{color:C.textPrimary,background:"rgba(255,255,255,0.12)",borderRadius:3,height:7,overflow:"hidden"}}>
+        <div style={{color:C.textPrimary,width:pct+"%",height:"100%",background:color,borderRadius:3,transition:"width 0.4s"}}/>
+      </div>
+    </div>
+  );
+}
+
+
+function DrillRow({drill}){
+  return(
+    <div style={{padding:"10px 15px",borderBottom:`1px solid ${C.border}`,display:"grid",gridTemplateColumns:"1fr auto",gap:10,alignItems:"start"}}>
+      <div>
+        <div style={{color:C.textPrimary,fontSize:15.5,fontWeight:700}}>{drill.name}</div>
+        <div style={{fontSize:13.5,color:C.stone,fontStyle:"italic",marginTop:3,lineHeight:1.5}}>{drill.note}</div>
+      </div>
+      <div style={{fontFamily:"'Cinzel',serif",fontSize:13.5,fontWeight:600,color:C.emberDim,textAlign:"right",whiteSpace:"nowrap",paddingTop:2}}>{drill.reps}</div>
+    </div>
+  );
+}
+
+function MissionCard({mission,logCount,onLog,suggestedUpgrade}){
+  const [open,setOpen]=useState(false);
+  const [followStep,setFollowStep]=useState(null);
+  const isArt=!!mission.steps;
+  const artColor=isArt?(CAT_COLOR[mission.category]||C.violet):null;
+  const artBg=isArt?(CAT_BG[mission.category]||C.violetLight):null;
+  const minLabel=MIN_LABEL[mission.mins]||`${mission.mins} min`;
+  return(
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,marginBottom:10,overflow:"hidden",boxShadow:suggestedUpgrade?`0 0 0 2px ${C.ember}`:"0 1px 4px rgba(28,33,40,0.06)"}}>
+      {suggestedUpgrade&&<div style={{background:C.ember,padding:"4px 14px",fontSize:11,fontFamily:"'Cinzel',serif",letterSpacing:"0.1em",color:C.ink}}>✦ DONE THIS 3+ TIMES — try a Tier {Math.min(mission.tier+1,3)} next</div>}
+      <div onClick={()=>{setOpen(o=>!o);setFollowStep(null);}} style={{color:C.textPrimary,padding:"12px 14px 10px",cursor:"pointer",userSelect:"none"}}>
+        <div style={{color:C.textPrimary,display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}}>
+          {isArt
+            ?<Tag label={CAT_LABEL[mission.category]} color={artColor} bg={artBg}/>
+            :<Tag label={mission.loc.charAt(0).toUpperCase()+mission.loc.slice(1)} color={LOC_COLOR[mission.loc]} bg={LOC_BG[mission.loc]}/>}
+          <Tag label={minLabel} color={C.sky} bg={C.skyLight}/>
+          <Tag label={TIER_LABEL[mission.tier]} color={TIER_COLOR[mission.tier]} bg="rgba(0,0,0,0.04)"/>
+          {mission.focus?.map(f=><Tag key={f} label={f} color={FOCUS_COLOR[f]} bg={FOCUS_BG[f]}/>)}
+        </div>
+        <div style={{color:C.textPrimary,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+          <div style={{color:C.textPrimary,flex:1}}>
+            <div style={{color:C.textPrimary,fontFamily:"'Cinzel',serif",fontSize:16.5,fontWeight:600,lineHeight:1.3}}>{mission.title}</div>
+            <div style={{fontSize:14.5,color:C.stone,fontStyle:"italic",marginTop:3,lineHeight:1.4}}>{mission.sub}</div>
+          </div>
+          <div style={{color:C.textPrimary,textAlign:"right",flexShrink:0}}>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:20.5,fontWeight:700,color:C.ember,lineHeight:1}}>{mission.pts}<span style={{fontSize:11,color:C.stone,marginLeft:3,fontWeight:400}}>pts</span></div>
+            {logCount>0&&<div style={{fontSize:12,color:C.stone,marginTop:2}}>Done ×{logCount}</div>}
+            <div style={{fontSize:15.5,color:C.stone,marginTop:3}}>{open?"▲":"▼"}</div>
+          </div>
+        </div>
+      </div>
+      {open&&(
+        <div style={{borderTop:`1px solid ${C.border}`}}>
+          {isArt?(
+            followStep===null?(
+              <>
+                {mission.steps.map((s,i)=>(
+                  <div key={i} style={{padding:"10px 15px",borderBottom:`1px solid ${C.border}`}}>
+                    <div style={{color:C.textPrimary,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                      <div style={{color:C.textPrimary,fontWeight:700,fontSize:15.5}}>{s.name}</div>
+                      <div style={{fontFamily:"'Cinzel',serif",fontSize:12,color:artColor,whiteSpace:"nowrap"}}>{s.dur}</div>
+                    </div>
+                    <div style={{fontSize:14.5,color:C.stone,fontStyle:"italic",marginTop:4,lineHeight:1.6}}>{s.cue}</div>
+                  </div>
+                ))}
+                {mission.progression&&<div style={{background:C.emberLight,borderTop:`1px solid rgba(200,146,42,0.2)`,padding:"10px 15px",fontSize:14.5,fontStyle:"italic",color:C.stone,lineHeight:1.6}}><strong style={{fontFamily:"'Cinzel',serif",fontSize:11,letterSpacing:"0.1em",display:"block",marginBottom:4,color:C.emberDim,fontStyle:"normal"}}>PROGRESSION</strong>{mission.progression}</div>}
+                {mission.lore&&<div style={{background:C.emberLight,borderTop:`1px solid rgba(200,146,42,0.2)`,padding:"10px 15px",fontSize:14.5,fontStyle:"italic",color:C.stone,lineHeight:1.5}}>✦ {mission.lore}</div>}
+                <div style={{padding:"10px 15px",borderTop:`1px solid ${C.border}`,display:"flex",gap:8}}>
+                  <button onClick={()=>setFollowStep(0)} style={{flex:2,padding:"9px 0",background:artColor,color:"white",border:"none",borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:13.5,cursor:"pointer"}}>▶ Follow Along</button>
+                  <button onClick={()=>onLog(mission)} style={{flex:1,padding:"9px 0",background:C.ink,color:C.parchment,border:"none",borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:13.5,cursor:"pointer"}}>✦ Log</button>
+                </div>
+              </>
+            ):(
+              <div style={{color:C.textPrimary,padding:14}}>
+                <div style={{marginBottom:10,fontSize:13.5,color:C.stone,fontFamily:"'Cinzel',serif",letterSpacing:"0.08em"}}>Step {followStep+1} of {mission.steps.length}</div>
+                <div style={{color:C.textPrimary,background:C.cardAlt,borderRadius:12,padding:14,marginBottom:12}}>
+                  <div style={{color:C.textPrimary,fontFamily:"'Cinzel',serif",fontSize:18.5,fontWeight:600,marginBottom:4}}>{mission.steps[followStep].name}</div>
+                  <div style={{fontFamily:"'Cinzel',serif",fontSize:13.5,color:artColor,marginBottom:10}}>{mission.steps[followStep].dur}</div>
+                  <div style={{fontSize:16.5,lineHeight:1.75,color:C.ink}}>{mission.steps[followStep].cue}</div>
+                </div>
+                <div style={{color:C.textPrimary,display:"flex",gap:8}}>
+                  <button onClick={()=>setFollowStep(s=>Math.max(0,s-1))} disabled={followStep===0} style={{flex:1,padding:"9px 0",background:followStep===0?C.border:C.cardAlt,color:followStep===0?C.stone:C.ink,border:`1px solid ${C.border}`,borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:13.5,cursor:followStep===0?"default":"pointer"}}>← Back</button>
+                  {followStep<mission.steps.length-1
+                    ?<button onClick={()=>setFollowStep(s=>s+1)} style={{flex:2,padding:"9px 0",background:artColor,color:"white",border:"none",borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:13.5,cursor:"pointer"}}>Next →</button>
+                    :<button onClick={()=>{onLog(mission);setFollowStep(null);}} style={{flex:2,padding:"9px 0",background:C.ink,color:C.parchment,border:"none",borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:13.5,cursor:"pointer"}}>✦ Complete & Log</button>}
+                </div>
+              </div>
+            )
+          ):(
+            <>
+              {mission.drills?.map((d,i)=><DrillRow key={i} drill={d}/>)}
+              {mission.lore&&<div style={{background:C.emberLight,borderTop:`1px solid rgba(200,146,42,0.2)`,padding:"10px 15px",fontSize:14.5,fontStyle:"italic",color:C.stone,lineHeight:1.5}}>✦ {mission.lore}</div>}
+              <div style={{padding:"10px 15px",borderTop:`1px solid ${C.border}`}}>
+                <button onClick={()=>onLog(mission)} style={{width:"100%",padding:"9px 0",background:C.ink,color:C.parchment,border:"none",borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:13.5,letterSpacing:"0.1em",cursor:"pointer"}}>✦ Log This Mission</button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── SLOT POOLS FOR MY WEEK ────────────────────────────────────────────────────
+const SLOT_POOLS={
+  normal:[
+    // MON — constrained, before work or lunch only
+    [[{time:"Before work",type:"gym",title:"Quick Forge — Upper Body",id:"m8",isR:false,note:"25–30 min. Lat pulldown, chest press, reverse fly."},{time:"Before work",type:"gym",title:"Quick Forge — Lower Body",id:"m9",isR:false,note:"25–30 min. Leg press, leg curl, hip abductor."}],
+     [{time:"Lunch",type:"office",title:"The First Language",id:"r3",isR:true,note:"Tier I belly dance. 15 min."},{time:"Lunch",type:"office",title:"The Conference Room Flow",id:"m4",isR:false,note:"10 min. Hip circles, warrior hold, figure-8."},{time:"Lunch",type:"office",title:"The Stairwell Sprint",id:"m3",isR:false,note:"10 min stairwell cardio."}]],
+    // TUE — flexible evening: gym slot has before/after work options; plus lunch slot
+    [[{time:"Before work",type:"gym",title:"The Rider's Quick Trial",id:"m7",isR:false,note:"20 min spin intervals."},{time:"After work",type:"gym",title:"The Rider's Full Trial",id:"m12",isR:false,note:"45 min spin + core — no time pressure after work."},{time:"After work",type:"gym",title:"The Full Upper Forge",id:"m10",isR:false,note:"45 min full upper body after work."}],
+     [{time:"Lunch",type:"office",title:"The First Guard",id:"r6",isR:true,note:"Tier I swordplay. 15 min."},{time:"Lunch",type:"office",title:"The Lunch Walk Gauntlet",id:"m5",isR:false,note:"20 min walk intervals."},{time:"Lunch",type:"office",title:"The Stairwell Sprint",id:"m3",isR:false,note:"10 min stairwell cardio."}]],
+    // WED — flexible evening: gym slot has before/after work options; plus lunch slot
+    [[{time:"Before work",type:"gym",title:"Quick Forge — Lower Body",id:"m9",isR:false,note:"25–30 min."},{time:"After work",type:"gym",title:"The Full Lower Forge",id:"m11",isR:false,note:"45 min full lower body after work."},{time:"After work",type:"gym",title:"The Rider's Full Trial",id:"m12",isR:false,note:"45 min spin + core after work."}],
+     [{time:"Lunch",type:"office",title:"The Warrior's Restoration",id:"r1",isR:true,note:"Tier I yoga. 20 min."},{time:"Lunch",type:"office",title:"The Conference Room Flow",id:"m4",isR:false,note:"10 min. Hip circles, warrior hold, figure-8."},{time:"Lunch",type:"office",title:"The Lunch Walk Gauntlet",id:"m5",isR:false,note:"20 min walk intervals."}]],
+    // THU — constrained, before work or lunch only
+    [[{time:"Before work",type:"gym",title:"Quick Forge — Upper Body",id:"m8",isR:false,note:"25–30 min."},{time:"Before work",type:"gym",title:"Quick Forge — Lower Body",id:"m9",isR:false,note:"25–30 min."}],
+     [{time:"Lunch",type:"office",title:"The Lunch Walk Gauntlet",id:"m5",isR:false,note:"20 min walk intervals."},{time:"Lunch",type:"office",title:"The Stairwell Sprint",id:"m3",isR:false,note:"10 min stairwell cardio."},{time:"Lunch",type:"office",title:"The Invisible Practice",id:"m2",isR:false,note:"5 min desk isolations."}]],
+    // FRI — flexible evening: gym slot has before/after work options; plus lunch/arts slot
+    [[{time:"Before work",type:"gym",title:"Quick Forge — Upper Body",id:"m8",isR:false,note:"25–30 min."},{time:"After work",type:"gym",title:"The Full Upper Forge",id:"m10",isR:false,note:"45 min full upper body after work."},{time:"After work",type:"gym",title:"The Rider's Full Trial",id:"m12",isR:false,note:"45 min spin + core after work."}],
+     [{time:"Lunch or after work",type:"office",title:"The Warrior's Restoration",id:"r1",isR:true,note:"Tier I yoga. 20 min."},{time:"Lunch or after work",type:"office",title:"The Power Flow",id:"r2",isR:true,note:"Tier II yoga. 25 min."},{time:"Lunch",type:"office",title:"The Office Forge",id:"m17",isR:false,note:"20 min bodyweight circuit."}]],
+    // SAT — rest
+    [],
+    // SUN — no time pressure
+    [[{time:"Morning",type:"gym",title:"The Full Lower Forge",id:"m11",isR:false,note:"45 min. Full lower body."},{time:"Morning",type:"gym",title:"The Full Upper Forge",id:"m10",isR:false,note:"45 min. Full upper body."},{time:"Morning",type:"gym",title:"The Rider's Full Trial",id:"m12",isR:false,note:"45 min spin + core."}],
+     [{time:"After gym",type:"gym",title:"Standing Restoration",id:"m16",isR:false,note:"20 min standing yoga in stretch area."},{time:"After gym",type:"gym",title:"The Warrior's Restoration",id:"r1",isR:true,note:"Tier I yoga flow. 20 min."},{time:"After gym",type:"gym",title:"The First Language",id:"r3",isR:true,note:"Tier I belly dance. 15 min."}]],
+  ],
+  slow:[
+    // MON — constrained
+    [[{time:"Before work",type:"gym",title:"Quick Forge — Upper Body",id:"m8",isR:false,note:"25–30 min."},{time:"Before work",type:"gym",title:"The Rider's Quick Trial",id:"m7",isR:false,note:"20 min spin."}],
+     [{time:"Lunch",type:"office",title:"The First Language",id:"r3",isR:true,note:"Tier I belly dance. 15 min."},{time:"Lunch",type:"office",title:"The Standing Restoration",id:"m16",isR:false,note:"20 min standing yoga."},{time:"Lunch",type:"office",title:"The Stairwell Sprint",id:"m3",isR:false,note:"10 min stairwell cardio."}]],
+    // TUE — flexible; gym + lunch + optional after-work arts
+    [[{time:"Before work",type:"gym",title:"The Rider's Quick Trial",id:"m7",isR:false,note:"20 min spin before work."},{time:"After work",type:"gym",title:"The Rider's Full Trial",id:"m12",isR:false,note:"45 min spin + core after work."},{time:"After work",type:"gym",title:"The Full Upper Forge",id:"m10",isR:false,note:"45 min full upper body after work."}],
+     [{time:"Lunch",type:"office",title:"The First Guard",id:"r6",isR:true,note:"Tier I swordplay. 15 min."},{time:"Lunch",type:"office",title:"The Office Forge",id:"m17",isR:false,note:"20 min bodyweight circuit."},{time:"Lunch",type:"office",title:"The Lunch Walk Gauntlet",id:"m5",isR:false,note:"20 min walk intervals."}]],
+    // WED — flexible; gym + lunch + after-work arts
+    [[{time:"Before work",type:"gym",title:"Quick Forge — Lower Body",id:"m9",isR:false,note:"25–30 min before work."},{time:"After work",type:"gym",title:"The Full Lower Forge",id:"m11",isR:false,note:"45 min full lower body after work."},{time:"After work",type:"gym",title:"The Rider's Full Trial",id:"m12",isR:false,note:"45 min spin + core after work."}],
+     [{time:"Lunch",type:"office",title:"The Full Lunch Circuit",id:"m6",isR:false,note:"30 min: walk intervals + stairwell + stretch."},{time:"After work",type:"office",title:"The Figure-8 & Body Wave",id:"r4",isR:true,note:"Tier II belly dance. 20 min."},{time:"After work",type:"office",title:"The Moving Blade",id:"r7",isR:true,note:"Tier II swordplay. 20 min."}]],
+    // THU — constrained
+    [[{time:"Before work",type:"gym",title:"Quick Forge — Lower Body",id:"m9",isR:false,note:"25–30 min."},{time:"Before work",type:"gym",title:"Quick Forge — Upper Body",id:"m8",isR:false,note:"25–30 min."}],
+     [{time:"Lunch",type:"office",title:"The Warrior's Restoration",id:"r1",isR:true,note:"Tier I yoga. 20 min."},{time:"Lunch",type:"office",title:"The Standing Restoration",id:"m16",isR:false,note:"20 min standing yoga."},{time:"Lunch",type:"office",title:"The Stairwell Sprint",id:"m3",isR:false,note:"10 min stairwell cardio."}]],
+    // FRI — flexible; gym + lunch + after-work arts
+    [[{time:"Before work",type:"gym",title:"The Rider's Quick Trial",id:"m7",isR:false,note:"20 min spin before work."},{time:"After work",type:"gym",title:"The Full Upper Forge",id:"m10",isR:false,note:"45 min full upper body after work."},{time:"After work",type:"gym",title:"The Full Lower Forge",id:"m11",isR:false,note:"45 min full lower body after work."}],
+     [{time:"Lunch or after work",type:"office",title:"The Moving Blade",id:"r7",isR:true,note:"Tier II swordplay. 20 min."},{time:"Lunch or after work",type:"office",title:"The Shadow Duel",id:"r8",isR:true,note:"Tier III swordplay. 20 min."},{time:"Lunch or after work",type:"office",title:"The Office Forge",id:"m17",isR:false,note:"20 min bodyweight circuit."}]],
+    // SAT — rest
+    [],
+    // SUN — no time pressure
+    [[{time:"Morning",type:"gym",title:"The Full Upper Forge",id:"m10",isR:false,note:"45 min full upper body."},{time:"Morning",type:"gym",title:"The Full Lower Forge",id:"m11",isR:false,note:"45 min full lower body."},{time:"Morning",type:"gym",title:"The Rider's Full Trial",id:"m12",isR:false,note:"45 min spin + core."}],
+     [{time:"After gym",type:"gym",title:"The Power Flow",id:"r2",isR:true,note:"Tier II yoga. 25 min."},{time:"After gym",type:"gym",title:"The Flowing Combination",id:"r5",isR:true,note:"Tier III belly dance. 15 min."},{time:"After gym",type:"gym",title:"The Shadow Duel",id:"r8",isR:true,note:"Tier III swordplay. 20 min."}]],
+  ],
+  busy:[
+    // MON
+    [[{time:"Lunch",type:"office",title:"The Stairwell Sprint",id:"m3",isR:false,note:"10 min."},{time:"Lunch",type:"office",title:"The Invisible Practice",id:"m2",isR:false,note:"5 min desk isolations."}]],
+    // TUE — flexible; at least offer after-work gym on busy weeks
+    [[{time:"After work",type:"gym",title:"The Rider's Quick Trial",id:"m7",isR:false,note:"20 min spin after work."},{time:"Lunch or after work",type:"office",title:"The First Language",id:"r3",isR:true,note:"Tier I belly dance. 15 min."},{time:"Lunch",type:"office",title:"The Standing Restoration",id:"m16",isR:false,note:"20 min standing yoga."}]],
+    // WED
+    [[{time:"Lunch",type:"office",title:"The Lunch Walk Gauntlet",id:"m5",isR:false,note:"20 min walk intervals."},{time:"Lunch",type:"office",title:"The Conference Room Flow",id:"m4",isR:false,note:"10 min. Hip circles, warrior hold, figure-8."}]],
+    // THU
+    [[{time:"Lunch",type:"office",title:"The First Guard",id:"r6",isR:true,note:"Tier I swordplay. 15 min."},{time:"Anytime",type:"office",title:"The Invisible Practice",id:"m2",isR:false,note:"5 min desk isolations."},{time:"Lunch",type:"office",title:"The Desk Reset",id:"m1",isR:false,note:"5 min posture reset."}]],
+    // FRI — flexible; offer after-work gym
+    [[{time:"After work",type:"gym",title:"Quick Forge — Upper Body",id:"m8",isR:false,note:"25–30 min after work."},{time:"Before work",type:"gym",title:"The Rider's Quick Trial",id:"m7",isR:false,note:"20 min spin before work."},{time:"After work",type:"gym",title:"Quick Forge — Lower Body",id:"m9",isR:false,note:"25–30 min after work."}]],
+    // SAT — rest
+    [],
+    // SUN
+    [[{time:"Morning",type:"gym",title:"Quick Forge — Lower Body",id:"m9",isR:false,note:"25–30 min."},{time:"Morning",type:"gym",title:"Quick Forge — Upper Body",id:"m8",isR:false,note:"25–30 min."},{time:"Morning",type:"gym",title:"The Rider's Quick Trial",id:"m7",isR:false,note:"20 min spin."}],
+     [{time:"After gym",type:"gym",title:"The Warrior's Restoration",id:"r1",isR:true,note:"Tier I yoga. 20 min."},{time:"After gym",type:"gym",title:"The First Guard",id:"r6",isR:true,note:"Tier I swordplay. 15 min."},{time:"After gym",type:"gym",title:"The First Language",id:"r3",isR:true,note:"Tier I belly dance. 15 min."}]],
+  ],
+};
+
+const PLAN_META={
+  normal:{label:"Normal Week",color:C.sage,pts:22},
+  slow:{label:"Slow Week",color:C.violet,pts:30},
+  busy:{label:"Busy Week",color:C.rose,pts:11},
+};
+
+const DAYS_META=[
+  {day:"MON",label:"Monday"},{day:"TUE",label:"Tuesday"},{day:"WED",label:"Wednesday"},
+  {day:"THU",label:"Thursday"},{day:"FRI",label:"Friday"},
+  {day:"SAT",label:"Saturday",rest:true},{day:"SUN",label:"Sunday"},
+];
+
+// ── APP ───────────────────────────────────────────────────────────────────────
+function App(){
+  const [tab,setTab]=useState("today");
+  const [log,setLog]=useStorage("codex-log",{});
+  const [filterLoc,setFilterLoc]=useState(null);
+  const [filterMins,setFilterMins]=useState(null);
+  const [filterCat,setFilterCat]=useState(null);
+  const [logMsg,setLogMsg]=useState(null);
+  const [activePlan,setActivePlan]=useState("normal");
+  const [slotChoices,setSlotChoices]=useStorage("codex-slot-choices",{});
+  const [swapPicker,setSwapPicker]=useState(null);
+  const [workoutLog,setWorkoutLog]=useStorage("codex-workout-log",[]);
+  const [logForm,setLogForm]=useState(null);
+  const [logSearch,setLogSearch]=useState("");
+
+  // ── Navigation history — lets the back button return to wherever the user was ──
+  const [navStack,setNavStack]=useState([]); // array of {tab} snapshots
+  const [pendingLogReturn,setPendingLogReturn]=useState(null); // tab to return to after closing the log form
+
+  function goToTab(targetTab,opts={}){
+    setNavStack(prev=>[...prev,{tab}]);
+    if(opts.returnAfterLog) setPendingLogReturn(tab);
+    setTab(targetTab);
+  }
+  function goBack(){
+    if(logForm){ setLogForm(null); if(pendingLogReturn){ setTab(pendingLogReturn); setPendingLogReturn(null); } return; }
+    if(swapPicker){ setSwapPicker(null); return; }
+    if(navStack.length>0){
+      const prev=navStack[navStack.length-1];
+      setNavStack(s=>s.slice(0,-1));
+      setTab(prev.tab);
+      return;
+    }
+    setTab("today");
+  }
+  const canGoBack = !!logForm || !!swapPicker || navStack.length>0;
+
+  // ── Notifications ──────────────────────────────────────────────────────────
+  const [notifPerm,setNotifPerm]=useState(typeof Notification!=="undefined"?Notification.permission:"unsupported");
+  const [reminderTime,setReminderTime]=useStorage("codex-reminder-time","18:00");
+  const [reminderOn,setReminderOn]=useStorage("codex-reminder-on",false);
+  const [isOnline,setIsOnline]=useState(typeof navigator!=="undefined"?navigator.onLine:true);
+
+  useEffect(()=>{
+    const goOnline=()=>setIsOnline(true);
+    const goOffline=()=>setIsOnline(false);
+    window.addEventListener("online",goOnline);
+    window.addEventListener("offline",goOffline);
+    return ()=>{window.removeEventListener("online",goOnline);window.removeEventListener("offline",goOffline);};
+  },[]);
+
+  // Schedule (or re-schedule) today's reminder via the service worker.
+  useEffect(()=>{
+    if(!reminderOn||notifPerm!=="granted"||!navigator.serviceWorker) return;
+    const [hh,mm]=reminderTime.split(":").map(Number);
+    const now=new Date();
+    const target=new Date();
+    target.setHours(hh,mm,0,0);
+    if(target<=now) target.setDate(target.getDate()+1);
+    const delayMs=target-now;
+    navigator.serviceWorker.ready.then(reg=>{
+      reg.active?.postMessage({
+        type:"SCHEDULE_NOTIFICATION",
+        title:"The Training Codex",
+        body:"Your daily quest is waiting. A few minutes is enough to keep the streak alive.",
+        delayMs,
+        tag:"codex-daily",
+      });
+    });
+  },[reminderOn,reminderTime,notifPerm]);
+
+  async function requestNotifPermission(){
+    if(typeof Notification==="undefined"){setNotifPerm("unsupported");return;}
+    const result=await Notification.requestPermission();
+    setNotifPerm(result);
+    if(result==="granted") setReminderOn(true);
+  }
+
+
+  // Week — Monday-based, starts from launch date
+  const thisWeek=(()=>{
+    const now=new Date();
+    const day=now.getDay();
+    const mondayOffset=day===0?-6:1-day;
+    const monday=new Date(now);
+    monday.setDate(now.getDate()+mondayOffset);
+    return Array.from({length:7},(_,i)=>{
+      const d=new Date(monday);
+      d.setDate(monday.getDate()+i);
+      return fmtDate(d);
+    });
+  })();
+
+  const weekEntries=thisWeek.flatMap(d=>log[d]||[]);
+  const weekPts=weekEntries.reduce((s,e)=>s+e.pts,0);
+  const focusCounts={strength:0,cardio:0,flexibility:0,spirit:0};
+  weekEntries.forEach(e=>e.focus?.forEach(f=>{focusCounts[f]=(focusCounts[f]||0)+e.pts;}));
+  const missionCounts={};
+  Object.values(log).flat().forEach(e=>{missionCounts[e.id]=(missionCounts[e.id]||0)+1;});
+
+  const streak=(()=>{
+    let s=0;const now=new Date();
+    for(let i=0;i<30;i++){const d=new Date(now);d.setDate(d.getDate()-i);if((log[fmtDate(d)]||[]).length>0)s++;else break;}
+    return s;
+  })();
+
+  const upgradeSignals=new Set();
+  ALL_MISSIONS.forEach(m=>{
+    if((missionCounts[m.id]||0)>=3&&ALL_MISSIONS.some(m2=>m2.loc===m.loc&&m2.tier===m.tier+1))
+      upgradeSignals.add(m.id);
+  });
+
+  const lowestFocusKey=Object.entries(focusCounts).sort((a,b)=>a[1]-b[1])[0][0];
+  const todaySuggestion=(()=>{
+    const candidates=ALL_MISSIONS.filter(m=>m.focus?.includes(lowestFocusKey));
+    const preferTier=Object.keys(missionCounts).length>=8?2:1;
+    return candidates.find(m=>m.tier===preferTier)||candidates[0];
+  })();
+
+  function logMission(mission){
+    const today=todayStr();
+    setLog(prev=>({...prev,[today]:[...(prev[today]||[]),{id:mission.id,pts:mission.pts,focus:mission.focus,tier:mission.tier,loc:mission.loc}]}));
+    setLogMsg(`✦ ${mission.title} logged! +${mission.pts} pt${mission.pts>1?"s":""}`);
+    setTimeout(()=>setLogMsg(null),3000);
+  }
+
+  const rank=weekPts>=18?"Legend":weekPts>=12?"Champion":weekPts>=8?"Journeyman":weekPts>=4?"Apprentice":"Seeker";
+  const rankColor=weekPts>=18?C.rose:weekPts>=12?C.ember:weekPts>=8?C.sage:C.stone;
+
+  // Week number since launch (Monday-based)
+  const weekNum=(()=>{
+    const launchKey="codex-launch-date";
+    let launch=null;
+    try{launch=localStorage.getItem(launchKey);}catch{}
+    if(!launch){launch=todayStr();try{localStorage.setItem(launchKey,launch);}catch{}}
+    const getMon=(d)=>{const day=d.getDay();const diff=day===0?-6:1-day;const m=new Date(d);m.setDate(d.getDate()+diff);return m;};
+    const launchMon=getMon(new Date(launch+"T12:00:00"));
+    const nowMon=getMon(new Date());
+    return Math.max(0,Math.floor((nowMon-launchMon)/(7*24*60*60*1000)));
+  })();
+
+  function getActiveOption(planKey,dayIdx,slotIdx){
+    const pool=(SLOT_POOLS[planKey][dayIdx]||[])[slotIdx]||[];
+    if(!pool.length)return null;
+    const key=`${planKey}-${dayIdx}-${slotIdx}`;
+    const ov=slotChoices[key];
+    return pool[ov!==undefined&&ov<pool.length?ov:weekNum%pool.length];
+  }
+  function setSlotChoice(planKey,dayIdx,slotIdx,optIdx){
+    const key=`${planKey}-${dayIdx}-${slotIdx}`;
+    setSlotChoices(prev=>({...prev,[key]:optIdx}));
+    setSwapPicker(null);
+  }
+
+  // Workout log
+  function openLogForm(title,id){setLogForm({missionId:id,missionTitle:title,sets:[{weight:"",reps:"",notes:""}]});}
+  function addSet(){setLogForm(f=>({...f,sets:[...f.sets,{weight:"",reps:"",notes:""}]}));}
+  function updateSet(i,field,val){setLogForm(f=>{const s=[...f.sets];s[i]={...s[i],[field]:val};return{...f,sets:s};});}
+  function removeSet(i){setLogForm(f=>{const s=f.sets.filter((_,x)=>x!==i);return{...f,sets:s.length?s:[{weight:"",reps:"",notes:""}]};});}
+  function saveWorkoutLog(){
+    const m=ALL_MISSIONS.find(x=>x.id===logForm.missionId);
+    setWorkoutLog(prev=>[{id:Date.now(),date:todayStr(),missionId:logForm.missionId,missionTitle:logForm.missionTitle,sets:logForm.sets.filter(s=>s.reps||s.weight||s.notes),totalPts:m?.pts||0,focus:m?.focus||[]},...prev]);
+    if(m)logMission(m);
+    setLogForm(null);
+  }
+  function getMissionProgress(id){return workoutLog.filter(e=>e.missionId===id).slice(0,10).reverse();}
+  const filteredLog=workoutLog.filter(e=>!logSearch||e.missionTitle.toLowerCase().includes(logSearch.toLowerCase())||e.date.includes(logSearch));
+  const gymMissionsForLog=ALL_MISSIONS.filter(m=>m.loc==="gym"&&m.drills?.some(d=>d.reps?.includes("×")));
+
+  const visibleMissions=ALL_MISSIONS.filter(m=>
+    (!filterLoc||m.loc===filterLoc)&&
+    (!filterMins||m.mins===filterMins)&&
+    (!filterCat||m.category===filterCat)
+  );
+
+  const NAV=[{id:"today",label:"Today"},{id:"missions",label:"Missions"},{id:"week",label:"My Week"},{id:"log",label:"Log"},{id:"progress",label:"Progress"}];
+  const NAV_ICON={today:"☀",missions:"⚔",week:"📅",log:"✎",progress:"⛨"};
+
+  const TYPE_COLOR={gym:C.sage,office:C.violet,outdoor:"#5A7A4A"};
+  const TYPE_BG={gym:C.sageLight,office:C.violetLight,outdoor:"#EBF3EB"};
+  const TYPE_LABEL={gym:"Gym",office:"Office",outdoor:"Outdoor"};
+
+  return(
+    <div style={{color:C.textPrimary,fontFamily:"'Lato',sans-serif",background:C.ink,minHeight:"100vh",maxWidth:520,margin:"0 auto",position:"relative",paddingBottom:"calc(100px + env(safe-area-inset-bottom, 0px))"}}>
+      <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet"/>
+
+      {/* HEADER */}
+      <div style={{color:C.textPrimary,background:C.ink,padding:"calc(16px + env(safe-area-inset-top, 0px)) 18px 12px",position:"relative",overflow:"hidden"}}>
+        <div style={{color:C.textPrimary,position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 0%, rgba(200,146,42,0.18) 0%, transparent 70%)",pointerEvents:"none"}}/>
+        <div style={{color:C.textPrimary,position:"relative",display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+          <div style={{display:"flex",alignItems:"flex-end",gap:10}}>
+            {canGoBack&&(
+              <button onClick={goBack} aria-label="Back" style={{
+                background:"rgba(255,255,255,0.08)",border:"none",borderRadius:8,
+                width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",
+                color:C.parchment,fontSize:20,cursor:"pointer",flexShrink:0,marginBottom:2,
+                WebkitTapHighlightColor:"transparent",
+              }}>←</button>
+            )}
+            <div>
+              <div style={{fontFamily:"'Cinzel',serif",fontSize:11,letterSpacing:"0.2em",color:"rgba(200,146,42,0.45)",marginBottom:4}}>THE TRAINING CODEX</div>
+              <div style={{fontFamily:"'Cinzel',serif",fontSize:22.5,fontWeight:700,color:C.parchment,lineHeight:1}}>
+                {logForm?logForm.missionTitle:tab==="today"?"Today's Quest":tab==="missions"?"Missions":tab==="week"?"My Week":tab==="log"?"Workout Log":"Your Chronicle"}
+              </div>
+            </div>
+          </div>
+          <div style={{color:C.textPrimary,textAlign:"right"}}>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:18.5,fontWeight:700,color:C.ember}}>{weekPts} pts</div>
+            <div style={{fontSize:11,color:rankColor,fontFamily:"'Cinzel',serif",letterSpacing:"0.1em"}}>{rank}</div>
+          </div>
+        </div>
+      </div>
+
+      {logMsg&&<div style={{background:C.sage,color:"white",padding:"9px 18px",fontSize:14.5,fontFamily:"'Cinzel',serif",letterSpacing:"0.08em",textAlign:"center"}}>{logMsg}</div>}
+      {!isOnline&&<div style={{background:C.emberDim,color:C.parchment,padding:"7px 18px",fontSize:13.5,fontFamily:"'Cinzel',serif",letterSpacing:"0.06em",textAlign:"center"}}>⚡ Offline — your data is safe and everything still works</div>}
+
+      {/* ── TODAY ── */}
+      {tab==="today"&&(
+        <div style={{color:C.textPrimary,padding:"18px"}}>
+          <div style={{color:C.textPrimary,background:C.ink,borderRadius:12,padding:"14px 18px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center",position:"relative",overflow:"hidden"}}>
+            <div style={{color:C.textPrimary,position:"absolute",inset:0,background:"radial-gradient(ellipse at 30% 50%, rgba(200,146,42,0.12) 0%, transparent 70%)",pointerEvents:"none"}}/>
+            <div style={{color:C.textPrimary,position:"relative"}}>
+              <div style={{fontFamily:"'Cinzel',serif",fontSize:14,letterSpacing:"0.14em",fontWeight:700,color:"rgba(242,236,216,0.35)",marginBottom:4}}>STREAK</div>
+              <div style={{fontFamily:"'Cinzel',serif",fontSize:28.5,fontWeight:700,color:streak>0?C.ember:C.stone,lineHeight:1}}>{streak}<span style={{fontSize:14.5,color:"rgba(242,236,216,0.35)",marginLeft:5,fontWeight:400}}>day{streak!==1?"s":""}</span></div>
+            </div>
+            <div style={{color:C.textPrimary,textAlign:"right",position:"relative"}}>
+              <div style={{fontFamily:"'Cinzel',serif",fontSize:11,letterSpacing:"0.12em",color:"rgba(242,236,216,0.35)",marginBottom:4}}>THIS WEEK</div>
+              <div style={{fontFamily:"'Cinzel',serif",fontSize:18.5,color:C.parchment}}>{weekPts} / 12 pts</div>
+              <div style={{color:C.textPrimary,background:"rgba(255,255,255,0.08)",borderRadius:2,height:4,marginTop:6,width:80,overflow:"hidden"}}>
+                <div style={{color:C.textPrimary,width:Math.min(100,(weekPts/12)*100)+"%",height:"100%",background:C.ember,transition:"width 0.4s"}}/>
+              </div>
+            </div>
+          </div>
+
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"16px 18px",marginBottom:12}}>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:14,letterSpacing:"0.14em",fontWeight:700,color:C.emberDim,marginBottom:16}}>THIS WEEK'S BALANCE</div>
+            <div style={{color:C.textPrimary,background:C.ink,borderRadius:12,padding:"16px 18px"}}>
+              {Object.entries(focusCounts).map(([f,v])=><MiniBar key={f} label={f} value={v} max={6} color={FOCUS_COLOR[f]}/>)}
+            </div>
+            <div style={{fontSize:13.5,color:C.stone,fontStyle:"italic",marginTop:8,lineHeight:1.5}}>
+              {weekPts===0?"Log your first mission to see what your body needs most."
+                :focusCounts[lowestFocusKey]===0?`No ${lowestFocusKey} work yet this week.`
+                :`${lowestFocusKey.charAt(0).toUpperCase()+lowestFocusKey.slice(1)} is your gap — today's suggestion targets it.`}
+            </div>
+          </div>
+
+          {upgradeSignals.size>0&&<div style={{color:C.textPrimary,background:C.emberLight,border:`1px solid rgba(200,146,42,0.3)`,borderRadius:12,padding:"10px 14px",marginBottom:12}}><div style={{fontSize:14.5,color:C.ink}}>✦ Some missions done 3+ times — look for gold-bordered cards in Missions to level up.</div></div>}
+
+          <div style={{fontFamily:"'Cinzel',serif",fontSize:14,letterSpacing:"0.14em",fontWeight:700,color:C.emberDim,marginBottom:16}}>SUGGESTED TODAY</div>
+          {todaySuggestion&&<MissionCard mission={todaySuggestion} logCount={missionCounts[todaySuggestion.id]||0} onLog={logMission} suggestedUpgrade={upgradeSignals.has(todaySuggestion.id)}/>}
+
+          {(log[todayStr()]||[]).length>0&&(
+            <div style={{color:C.textPrimary,marginTop:12}}>
+              <div style={{fontFamily:"'Cinzel',serif",fontSize:14,letterSpacing:"0.14em",fontWeight:700,color:C.emberDim,marginBottom:16}}>LOGGED TODAY</div>
+              {(log[todayStr()]||[]).map((e,i)=>{
+                const m=ALL_MISSIONS.find(x=>x.id===e.id);
+                return m?<div key={i} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:4,padding:"9px 14px",marginBottom:5,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:C.textPrimary,fontSize:15.5}}>{m.title}</span><span style={{fontFamily:"'Cinzel',serif",fontSize:14.5,color:C.ember}}>+{e.pts}pts</span></div>:null;
+              })}
+            </div>
+          )}
+
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"16px 18px",marginTop:12}}>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:14,letterSpacing:"0.14em",fontWeight:700,color:C.emberDim,marginBottom:16}}>DAILY REMINDER</div>
+            {notifPerm==="unsupported"&&<div style={{fontSize:14.5,color:C.stone,fontStyle:"italic",lineHeight:1.6}}>Notifications aren't supported in this browser. The app still works fully — just no reminder ping.</div>}
+            {notifPerm==="denied"&&<div style={{fontSize:14.5,color:C.stone,fontStyle:"italic",lineHeight:1.6}}>Notifications were blocked. Re-enable them in your browser or device settings to turn reminders back on.</div>}
+            {notifPerm==="default"&&(
+              <button onClick={requestNotifPermission} style={{width:"100%",padding:"10px 0",background:C.ink,color:C.parchment,border:"none",borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:13.5,letterSpacing:"0.08em",cursor:"pointer"}}>✦ Enable Daily Reminder</button>
+            )}
+            {notifPerm==="granted"&&(
+              <>
+                <div style={{color:C.textPrimary,display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <span style={{fontSize:14.5,color:C.ink}}>Remind me at</span>
+                  <input type="time" value={reminderTime} onChange={e=>setReminderTime(e.target.value)} style={{padding:"6px 8px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:15.5,fontFamily:"Lato,sans-serif"}}/>
+                </div>
+                <button onClick={()=>setReminderOn(o=>!o)} style={{width:"100%",padding:"9px 0",background:reminderOn?C.sage:C.border,color:reminderOn?"white":C.stone,border:"none",borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:13.5,letterSpacing:"0.08em",cursor:"pointer"}}>{reminderOn?"✦ Reminder Active":"Reminder Off"}</button>
+                <div style={{fontSize:13.5,color:C.stone,fontStyle:"italic",marginTop:8,lineHeight:1.5}}>Best-effort local reminder — depends on the app staying installed and your device's notification settings. Not a guaranteed push notification.</div>
+              </>
+            )}
+          </div>
+
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"16px 18px",marginTop:14}}>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:14,letterSpacing:"0.14em",fontWeight:700,color:C.emberDim,marginBottom:18}}>RANKS</div>
+            {[{rank:"Seeker",pts:"0–3"},{rank:"Apprentice",pts:"4–7"},{rank:"Journeyman",pts:"8–11"},{rank:"Champion",pts:"12–17"},{rank:"Legend",pts:"18+"}].map(r=>(
+              <div key={r.rank} style={{color:C.textPrimary,display:"flex",gap:14,marginBottom:14,alignItems:"center"}}>
+                <div style={{fontFamily:"'Cinzel',serif",fontSize:18,color:r.rank===rank?C.ember:C.textPrimary,minWidth:120,fontWeight:r.rank===rank?700:400}}>{r.rank}</div>
+                <div style={{fontSize:15.5,color:C.stone}}>{r.pts} pts</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── MISSIONS ── */}
+      {tab==="missions"&&(
+        <div>
+          <div style={{background:C.card,borderBottom:`1px solid ${C.border}`,padding:"8px 12px",display:"flex",gap:6,overflowX:"auto"}}>
+            {["office","gym","outdoor"].map(l=>(
+              <button key={l} onClick={()=>setFilterLoc(filterLoc===l?null:l)} style={{fontFamily:"'Cinzel',serif",fontSize:12,padding:"5px 10px",border:`1px solid ${filterLoc===l?LOC_COLOR[l]:C.border}`,background:filterLoc===l?LOC_COLOR[l]:C.cardAlt,color:filterLoc===l?"white":C.stone,cursor:"pointer",borderRadius:2,whiteSpace:"nowrap"}}>{l.charAt(0).toUpperCase()+l.slice(1)}</button>
+            ))}
+            {["yoga","dance","sword"].map(cat=>(
+              <button key={cat} onClick={()=>setFilterCat(filterCat===cat?null:cat)} style={{fontFamily:"'Cinzel',serif",fontSize:12,padding:"5px 10px",border:`1px solid ${filterCat===cat?CAT_COLOR[cat]:C.border}`,background:filterCat===cat?CAT_COLOR[cat]:C.cardAlt,color:filterCat===cat?"white":C.stone,cursor:"pointer",borderRadius:2,whiteSpace:"nowrap"}}>{CAT_LABEL[cat]}</button>
+            ))}
+            <div style={{color:C.textPrimary,width:1,background:C.border,flexShrink:0}}/>
+            {[5,10,15,20,30,45].map(m=>(
+              <button key={m} onClick={()=>setFilterMins(filterMins===m?null:m)} style={{fontFamily:"'Cinzel',serif",fontSize:12,padding:"5px 9px",border:`1px solid ${filterMins===m?C.ember:C.border}`,background:filterMins===m?C.ember:C.cardAlt,color:filterMins===m?"white":C.stone,cursor:"pointer",borderRadius:2,whiteSpace:"nowrap"}}>{m}m</button>
+            ))}
+          </div>
+          <div style={{color:C.textPrimary,padding:"10px 14px"}}>
+            {visibleMissions.length===0&&<div style={{textAlign:"center",padding:40,fontStyle:"italic",color:C.stone}}>No missions match those filters.</div>}
+            {visibleMissions.map(m=><MissionCard key={m.id} mission={m} logCount={missionCounts[m.id]||0} onLog={logMission} suggestedUpgrade={upgradeSignals.has(m.id)}/>)}
+          </div>
+        </div>
+      )}
+
+      {/* ── MY WEEK ── */}
+      {tab==="week"&&(
+        <div style={{color:C.textPrimary,padding:"18px"}}>
+          <div style={{color:C.textPrimary,display:"flex",gap:8,marginBottom:12}}>
+            {Object.entries(PLAN_META).map(([key,p])=>(
+              <button key={key} onClick={()=>setActivePlan(key)} style={{flex:1,padding:"9px 6px",border:`1px solid ${activePlan===key?p.color:C.border}`,background:activePlan===key?p.color:C.cardAlt,color:activePlan===key?"white":C.stone,borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:12,letterSpacing:"0.07em",cursor:"pointer",lineHeight:1.3}}>{p.label}</button>
+            ))}
+          </div>
+          <div style={{color:C.textPrimary,background:C.ink,borderRadius:12,padding:"9px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:12,color:PLAN_META[activePlan].color,letterSpacing:"0.08em"}}>Week {weekNum+1}</div>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:15.5,color:C.ember}}>~{PLAN_META[activePlan].pts} pts</div>
+          </div>
+
+          {DAYS_META.map((d,di)=>{
+            const pools=SLOT_POOLS[activePlan][di]||[];
+            const isRest=d.rest||pools.length===0;
+            return(
+              <div key={di} style={{color:C.textPrimary,marginBottom:10}}>
+                <div style={{color:C.textPrimary,background:isRest?"#F5F3F0":C.ink,borderRadius:isRest?6:"6px 6px 0 0",padding:"9px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{fontFamily:"'Cinzel',serif",fontSize:15.5,fontWeight:700,color:isRest?C.stone:C.parchment}}>{d.day} — {d.label}</div>
+                  {isRest&&<div>🛡️</div>}
+                </div>
+                {!isRest&&pools.map((pool,si)=>{
+                  const active=getActiveOption(activePlan,di,si);
+                  if(!active)return null;
+                  const ir=active.isR===true;
+                  const fm=!ir?ALL_MISSIONS.find(x=>x.id===active.id):null;
+                  const fr=ir?ALL_MISSIONS.find(x=>x.id===active.id):null;
+                  const rc=fr&&fr.category?CAT_COLOR[fr.category]:C.violet;
+                  const rb=fr&&fr.category?CAT_BG[fr.category]:C.violetLight;
+                  const rl=fr&&fr.category?CAT_LABEL[fr.category]:"Art";
+                  const isLast=si===pools.length-1;
+                  const ck=`${activePlan}-${di}-${si}`;
+                  const ci=slotChoices[ck]!==undefined?slotChoices[ck]:weekNum%pool.length;
+                  return(
+                    <div key={si} style={{background:ir?rb:C.card,border:`1px solid ${C.border}`,borderTop:"none",borderRadius:isLast?"0 0 12px 12px":0,padding:"14px 18px",borderBottom:!isLast?`1px solid ${C.border}`:undefined}}>
+                      <div style={{color:C.textPrimary,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:4}}>
+                        <div style={{color:C.textPrimary,flex:1}}>
+                          <div style={{color:C.textPrimary,display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}}>
+                            <span style={{fontFamily:"'Cinzel',serif",fontSize:11,color:C.emberDim,background:C.emberLight,padding:"3px 8px",borderRadius:3}}>{active.time}</span>
+                            {ir?<span style={{fontFamily:"'Cinzel',serif",fontSize:11,color:C.ink,background:rc,padding:"3px 8px",borderRadius:3,fontWeight:700}}>{rl}</span>
+                               :<span style={{fontFamily:"'Cinzel',serif",fontSize:11,color:TYPE_COLOR[active.type],background:TYPE_BG[active.type],padding:"3px 8px",borderRadius:3}}>{TYPE_LABEL[active.type]}</span>}
+                            {ir&&fr&&<span style={{fontFamily:"'Cinzel',serif",fontSize:11,color:C.ink,background:TIER_COLOR[fr.tier],padding:"3px 8px",borderRadius:3,fontWeight:700}}>{TIER_LABEL[fr.tier]}</span>}
+                            {!ir&&fm&&<span style={{fontFamily:"'Cinzel',serif",fontSize:11,color:C.sky,background:C.skyLight,padding:"3px 8px",borderRadius:3}}>{MIN_LABEL[fm.mins]||`${fm.mins}m`}</span>}
+                          </div>
+                          <div style={{fontSize:17,fontWeight:700,color:ir?rc:C.textPrimary}}>{active.title}</div>
+                          <div style={{fontSize:14,color:ir?rc:C.stone,fontStyle:"italic",marginTop:4,lineHeight:1.55,opacity:ir?0.85:1}}>{active.note}</div>
+                        </div>
+                        <div style={{color:C.textPrimary,display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end",flexShrink:0}}>
+                          {!ir&&fm&&<div style={{fontFamily:"'Cinzel',serif",fontSize:17,fontWeight:700,color:C.ember}}>{fm.pts}pts</div>}
+                          {ir&&<div onClick={()=>goToTab("missions")} style={{fontFamily:"'Cinzel',serif",fontSize:11,color:rc,cursor:"pointer",border:`1px solid ${rc}`,padding:"3px 8px",borderRadius:3,fontWeight:700}}>View →</div>}
+                          {pool.length>1&&<button onClick={()=>setSwapPicker(swapPicker?.k===ck?null:{k:ck,planKey:activePlan,di,si,pool,ci})} style={{fontFamily:"'Cinzel',serif",fontSize:11,color:ir?rc:C.stone,background:ir?"rgba(0,0,0,0.25)":C.cardAlt,border:`1px solid ${ir?rc:C.border}`,padding:"3px 8px",borderRadius:3,cursor:"pointer"}}>swap ⇄</button>}
+                        </div>
+                      </div>
+                      <div style={{marginTop:10}}>
+                        <button onClick={()=>{
+                          const m=fm||fr;
+                          if(!m)return;
+                          const isGymWithSets=m.loc==="gym"&&m.drills?.some(d=>d.reps?.includes("×"));
+                          if(isGymWithSets){ goToTab("log",{returnAfterLog:true}); openLogForm(m.title,m.id); }
+                          else { logMission(m); }
+                        }} style={{width:"100%",padding:"9px 0",background:ir?"rgba(0,0,0,0.3)":C.ink,color:ir?rc:C.parchment,border:ir?`1px solid ${rc}`:"none",borderRadius:6,fontFamily:"'Cinzel',serif",fontSize:12,letterSpacing:"0.06em",cursor:"pointer",fontWeight:700}}>
+                          ✦ Log This Session
+                        </button>
+                      </div>
+                      {swapPicker?.k===ck&&(
+                        <div style={{color:C.textPrimary,marginTop:10,background:C.cardAlt,borderRadius:6,padding:12}}>
+                          <div style={{fontFamily:"'Cinzel',serif",fontSize:11,letterSpacing:"0.12em",color:C.emberDim,marginBottom:8}}>ALTERNATIVES</div>
+                          {pool.map((opt,oi)=>(
+                            <div key={oi} onClick={()=>setSlotChoice(activePlan,di,si,oi)} style={{padding:"9px 11px",marginBottom:6,borderRadius:5,border:`1px solid ${oi===ci?C.ember:C.border}`,background:oi===ci?C.emberLight:C.card,cursor:"pointer"}}>
+                              <div style={{color:C.textPrimary,fontSize:15,fontWeight:700}}>{opt.title}</div>
+                              <div style={{fontSize:13.5,color:C.stone,fontStyle:"italic",marginTop:3}}>{opt.time} · {opt.note}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+
+          <div style={{color:C.textPrimary,background:C.ink,borderRadius:12,padding:"9px 14px",marginTop:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:12,letterSpacing:"0.1em",color:"rgba(242,236,216,0.35)"}}>WEEK TOTAL</div>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:20.5,fontWeight:700,color:C.ember}}>~{PLAN_META[activePlan].pts} pts</div>
+          </div>
+        </div>
+      )}
+
+      {/* ── WORKOUT LOG ── */}
+      {tab==="log"&&(
+        <div style={{color:C.textPrimary,padding:"18px"}}>
+          {logForm?(
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden",marginBottom:14}}>
+              <div style={{color:C.textPrimary,background:C.ink,padding:"11px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{fontFamily:"'Cinzel',serif",fontSize:15.5,color:C.parchment}}>{logForm.missionTitle}</div>
+                <button onClick={goBack} style={{background:"none",border:"none",color:"rgba(242,236,216,0.4)",fontSize:18.5,cursor:"pointer"}}>✕</button>
+              </div>
+              {logForm.sets.map((s,i)=>(
+                <div key={i} style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`}}>
+                  <div style={{color:C.textPrimary,display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
+                    <div style={{fontFamily:"'Cinzel',serif",fontSize:12,color:C.stone,minWidth:44}}>SET {i+1}</div>
+                    <input placeholder="Weight" value={s.weight} onChange={e=>updateSet(i,"weight",e.target.value)} style={{flex:1,padding:"6px 8px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:14.5,fontFamily:"Lato,sans-serif"}}/>
+                    <input placeholder="Reps" value={s.reps} onChange={e=>updateSet(i,"reps",e.target.value)} style={{width:55,padding:"6px 8px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:14.5,fontFamily:"Lato,sans-serif"}}/>
+                    {logForm.sets.length>1&&<button onClick={()=>removeSet(i)} style={{background:"none",border:"none",color:C.stone,fontSize:16.5,cursor:"pointer"}}>✕</button>}
+                  </div>
+                  <input placeholder="Notes (optional)" value={s.notes} onChange={e=>updateSet(i,"notes",e.target.value)} style={{width:"100%",padding:"6px 8px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:14.5,fontFamily:"Lato,sans-serif"}}/>
+                </div>
+              ))}
+              <div style={{color:C.textPrimary,padding:"10px 14px",display:"flex",gap:8}}>
+                <button onClick={addSet} style={{flex:1,padding:"8px 0",background:C.card,border:`1px solid ${C.border}`,borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:12,color:C.stone,cursor:"pointer"}}>+ Set</button>
+                <button onClick={saveWorkoutLog} style={{flex:2,padding:"8px 0",background:C.ink,border:"none",borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:12,color:C.parchment,cursor:"pointer"}}>✦ Save Session</button>
+              </div>
+            </div>
+          ):(
+            <div style={{color:C.textPrimary,marginBottom:14}}>
+              <div style={{fontFamily:"'Cinzel',serif",fontSize:14,letterSpacing:"0.14em",fontWeight:700,color:C.emberDim,marginBottom:16}}>LOG A SESSION</div>
+              <div style={{color:C.textPrimary,display:"flex",gap:6,overflowX:"auto",paddingBottom:2}}>
+                {gymMissionsForLog.map(m=>(
+                  <button key={m.id} onClick={()=>openLogForm(m.title,m.id)} style={{flexShrink:0,padding:"7px 11px",background:C.card,border:`1px solid ${C.border}`,borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:12,color:C.stone,cursor:"pointer",whiteSpace:"nowrap"}}>{m.title}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <input placeholder="Search sessions..." value={logSearch} onChange={e=>setLogSearch(e.target.value)} style={{width:"100%",padding:"8px 12px",border:`1px solid ${C.border}`,borderRadius:4,fontSize:15.5,fontFamily:"Lato,sans-serif",background:C.card,marginBottom:12}}/>
+
+          {filteredLog.length===0?(
+            <div style={{textAlign:"center",padding:"40px 20px",color:C.stone,fontStyle:"italic",fontSize:15.5}}>
+              {workoutLog.length===0?"Your chronicle awaits. Log your first session.":"No sessions match that search."}
+            </div>
+          ):filteredLog.map(entry=>{
+            const progress=getMissionProgress(entry.missionId);
+            const prev=progress.length>=2?progress[progress.length-2]:null;
+            const curr=progress.length>=1?progress[progress.length-1]:null;
+            let nudge=null;
+            if(prev?.sets?.[0]?.weight&&curr?.sets?.[0]?.weight){
+              const pd=parseFloat(prev.sets[0].weight),cd=parseFloat(curr.sets[0].weight);
+              if(!isNaN(pd)&&!isNaN(cd)){
+                const diff=cd-pd;
+                nudge=diff>0?{text:`↑ ${diff}kg heavier than last session.`,color:C.sage}
+                     :diff<0?{text:`↓ Lighter than last session — note how it felt.`,color:C.rose}
+                     :{text:`Same weight as last time — consider adding 2.5–5kg next session.`,color:C.sky};
+              }
+            }
+            return(
+              <div key={entry.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,marginBottom:10,overflow:"hidden"}}>
+                <div style={{color:C.textPrimary,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div>
+                    <div style={{color:C.textPrimary,fontSize:15.5,fontWeight:700}}>{entry.missionTitle}</div>
+                    <div style={{fontSize:13.5,color:C.stone,marginTop:2}}>{new Date(entry.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}</div>
+                  </div>
+                  {entry.totalPts>0&&<div style={{fontFamily:"'Cinzel',serif",fontSize:14.5,color:C.ember}}>+{entry.totalPts}pts</div>}
+                </div>
+                {entry.sets?.length>0&&(
+                  <div style={{borderTop:`1px solid ${C.border}`}}>
+                    {entry.sets.map((s,si)=>(
+                      <div key={si} style={{padding:"6px 14px",borderBottom:si<entry.sets.length-1?`1px solid ${C.border}`:undefined,display:"flex",gap:10,alignItems:"center"}}>
+                        <span style={{fontFamily:"'Cinzel',serif",fontSize:11,color:C.stone,minWidth:38}}>Set {si+1}</span>
+                        {s.weight&&<span style={{color:C.textPrimary,fontSize:14.5,fontWeight:700}}>{s.weight}</span>}
+                        {s.reps&&<span style={{fontSize:14.5,color:C.stone}}>× {s.reps}</span>}
+                        {s.notes&&<span style={{fontSize:13.5,color:C.stone,fontStyle:"italic",flex:1}}>{s.notes}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {nudge&&<div style={{padding:"7px 14px",fontSize:13.5,color:nudge.color,fontStyle:"italic",borderTop:`1px solid ${C.border}`}}>{nudge.text}</div>}
+              </div>
+            );
+          })}
+
+          {workoutLog.length>0&&<button onClick={()=>{if(window.confirm("Delete all workout log entries?"))setWorkoutLog([]);}} style={{marginTop:8,width:"100%",padding:"9px 0",background:"transparent",color:C.stone,border:`1px solid ${C.border}`,borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:12,cursor:"pointer"}}>Clear Log</button>}
+        </div>
+      )}
+
+      {/* ── PROGRESS ── */}
+      {tab==="progress"&&(
+        <div style={{color:C.textPrimary,padding:"18px"}}>
+          <div style={{color:C.textPrimary,background:C.ink,borderRadius:12,padding:"16px 18px",marginBottom:12,position:"relative",overflow:"hidden"}}>
+            <div style={{color:C.textPrimary,position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 0%, rgba(200,146,42,0.18) 0%, transparent 70%)",pointerEvents:"none"}}/>
+            <div style={{color:C.textPrimary,position:"relative"}}>
+              <div style={{fontFamily:"'Cinzel',serif",fontSize:11,letterSpacing:"0.2em",color:"rgba(242,236,216,0.3)",marginBottom:6}}>CURRENT RANK</div>
+              <div style={{fontFamily:"'Cinzel',serif",fontSize:32.5,fontWeight:700,color:rankColor,lineHeight:1,marginBottom:4}}>{rank}</div>
+              <div style={{fontFamily:"'Cinzel',serif",fontSize:16.5,color:"rgba(242,236,216,0.55)"}}>{weekPts} pts this week</div>
+              <div style={{color:C.textPrimary,background:"rgba(255,255,255,0.08)",borderRadius:2,height:4,marginTop:10,overflow:"hidden"}}>
+                <div style={{width:Math.min(100,(weekPts/18)*100)+"%",height:"100%",background:`linear-gradient(90deg,${C.emberDim},${C.ember})`,transition:"width 0.4s"}}/>
+              </div>
+              {streak>0&&<div style={{marginTop:10,fontSize:14.5,color:C.ember,fontFamily:"'Cinzel',serif"}}>✦ {streak}-day streak</div>}
+            </div>
+          </div>
+
+          <div style={{background:C.ink,border:`1px solid ${C.border}`,borderRadius:12,padding:"16px 18px",marginBottom:12}}>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:14,letterSpacing:"0.14em",fontWeight:700,color:"rgba(242,236,216,0.35)",marginBottom:10}}>WEEKLY BALANCE</div>
+            {Object.entries(focusCounts).map(([f,v])=><MiniBar key={f} label={f} value={v} max={6} color={FOCUS_COLOR[f]}/>)}
+          </div>
+
+          <div style={{fontFamily:"'Cinzel',serif",fontSize:14,letterSpacing:"0.14em",fontWeight:700,color:C.emberDim,marginBottom:16}}>THIS WEEK — MON TO SUN</div>
+          {thisWeek.map(d=>{
+            const entries=log[d]||[],pts=entries.reduce((s,e)=>s+e.pts,0);
+            const label=new Date(d+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+            return(
+              <div key={d} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:4,padding:"9px 14px",marginBottom:5,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{color:C.textPrimary,fontSize:14.5,fontWeight:700}}>{label}</div>
+                  <div style={{fontSize:13.5,color:C.stone,fontStyle:"italic",marginTop:2}}>{entries.length>0?entries.map(e=>ALL_MISSIONS.find(m=>m.id===e.id)?.title||"").filter(Boolean).join(" · "):"Rest"}</div>
+                </div>
+                <div style={{fontFamily:"'Cinzel',serif",fontSize:15.5,color:pts>0?C.ember:C.stone}}>{pts>0?`+${pts}`:"—"}</div>
+              </div>
+            );
+          })}
+
+          {Object.keys(missionCounts).length>0&&(
+            <>
+              <div style={{fontFamily:"'Cinzel',serif",fontSize:14,letterSpacing:"0.14em",fontWeight:700,color:C.emberDim,marginBottom:16,marginTop:14}}>ALL-TIME</div>
+              {ALL_MISSIONS.filter(m=>(missionCounts[m.id]||0)>0).sort((a,b)=>(missionCounts[b.id]||0)-(missionCounts[a.id]||0)).map(m=>(
+                <div key={m.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:4,padding:"9px 14px",marginBottom:5,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div><div style={{color:C.textPrimary,fontSize:15.5}}>{m.title}</div><div style={{fontSize:13.5,color:C.stone,marginTop:2}}>{TIER_LABEL[m.tier]} · {m.loc||m.category}</div></div>
+                  <div style={{color:C.textPrimary,textAlign:"right"}}>
+                    <div style={{fontFamily:"'Cinzel',serif",fontSize:15.5,color:C.ember}}>×{missionCounts[m.id]}</div>
+                    {upgradeSignals.has(m.id)&&<div style={{fontSize:11,color:C.ember}}>↑ level up</div>}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          <div style={{color:C.textPrimary,background:C.emberLight,border:`1px solid rgba(200,146,42,0.3)`,borderRadius:12,padding:"16px 18px",marginTop:18}}>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:14,letterSpacing:"0.14em",fontWeight:700,color:C.emberDim,marginBottom:16}}>BACKUP YOUR CHRONICLE</div>
+            <div style={{fontSize:13.5,color:C.stone,fontStyle:"italic",lineHeight:1.6,marginBottom:10}}>Your progress lives in this device's storage. Export a backup file occasionally — especially before switching phones or browsers.</div>
+            <div style={{color:C.textPrimary,display:"flex",gap:8}}>
+              <button onClick={()=>{
+                const backup={log,workoutLog,slotChoices,version:1,exportedAt:new Date().toISOString()};
+                const blob=new Blob([JSON.stringify(backup,null,2)],{type:"application/json"});
+                const url=URL.createObjectURL(blob);
+                const a=document.createElement("a");
+                a.href=url;a.download=`training-codex-backup-${todayStr()}.json`;
+                document.body.appendChild(a);a.click();document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }} style={{flex:1,padding:"9px 0",background:C.ink,color:C.parchment,border:"none",borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:13.5,cursor:"pointer"}}>↓ Export Backup</button>
+              <label style={{flex:1,padding:"9px 0",background:C.card,color:C.stone,border:`1px solid ${C.border}`,borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:13.5,cursor:"pointer",textAlign:"center",display:"block"}}>
+                ↑ Import Backup
+                <input type="file" accept="application/json" style={{color:C.textPrimary,display:"none"}} onChange={e=>{
+                  const file=e.target.files[0];
+                  if(!file)return;
+                  const reader=new FileReader();
+                  reader.onload=()=>{
+                    try{
+                      const data=JSON.parse(reader.result);
+                      if(data.log)setLog(data.log);
+                      if(data.workoutLog)setWorkoutLog(data.workoutLog);
+                      if(data.slotChoices)setSlotChoices(data.slotChoices);
+                      setLogMsg("✦ Backup restored");
+                      setTimeout(()=>setLogMsg(null),3000);
+                    }catch{
+                      window.alert("That file couldn't be read as a Codex backup.");
+                    }
+                  };
+                  reader.readAsText(file);
+                  e.target.value="";
+                }}/>
+              </label>
+            </div>
+          </div>
+
+          <button onClick={()=>{if(window.confirm("Reset all progress?"))setLog({});}} style={{marginTop:10,width:"100%",padding:"9px 0",background:"transparent",color:C.stone,border:`1px solid ${C.border}`,borderRadius:4,fontFamily:"'Cinzel',serif",fontSize:12,cursor:"pointer"}}>Reset Chronicle</button>
+        </div>
+      )}
+
+      {/* BOTTOM NAV */}
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:520,background:C.card,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom, 0px)"}}>
+        {NAV.map(n=>(
+          <button key={n.id} onClick={()=>{setNavStack([]);setLogForm(null);setSwapPicker(null);setPendingLogReturn(null);setTab(n.id);}} style={{
+            flex:1,padding:"13px 2px 12px",background:tab===n.id?C.emberLight:"none",border:"none",cursor:"pointer",
+            display:"flex",flexDirection:"column",alignItems:"center",gap:5,
+            fontFamily:"'Lato',sans-serif",fontSize:13.5,letterSpacing:"0.01em",lineHeight:1.2,
+            color:tab===n.id?C.ember:C.stone,fontWeight:tab===n.id?700:500,
+            borderTop:`3px solid ${tab===n.id?C.ember:"transparent"}`,
+            WebkitTapHighlightColor:"transparent",
+          }}>
+            <span style={{color:tab===n.id?C.ember:C.stone,fontSize:21}}>{NAV_ICON[n.id]}</span>
+            <span>{n.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+document.getElementById("loading-screen").style.display = "none";
+</script>
+
+<script>
+  // ── Service Worker registration (offline + local notifications) ──────────
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./service-worker.js").catch(console.error);
+    });
+  }
+
+  // ── Install prompt handling ────────────────────────────────────────────────
+  let deferredPrompt = null;
+  const banner = document.getElementById("install-banner");
+  const installBtn = document.getElementById("install-btn");
+  const dismissBtn = document.getElementById("dismiss-btn");
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!sessionStorage.getItem("codex-install-dismissed")) {
+      banner.style.display = "flex";
+    }
+  });
+
+  installBtn?.addEventListener("click", async () => {
+    banner.style.display = "none";
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+    }
+  });
+
+  dismissBtn?.addEventListener("click", () => {
+    banner.style.display = "none";
+    sessionStorage.setItem("codex-install-dismissed", "1");
+  });
+
+  window.addEventListener("appinstalled", () => {
+    banner.style.display = "none";
+  });
+</script>
+
+</body>
+</html>
